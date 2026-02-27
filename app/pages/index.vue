@@ -1,3 +1,3 @@
 <template>
-  <p class="text-red-500">hello</p>
+  <p class="text-red-500"></p>
 </template>
