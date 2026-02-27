@@ -9,10 +9,12 @@ export default defineNuxtConfig({
   },
   supabase: {
     types: "~~/database.types.ts",
+    url: process.env.SUPABASE_URL,
+    key: process.env.SUPABASE_ANON_KEY,
     redirectOptions: {
       login: '/login',
       callback: '/confirm',
-      exclude: ['/'], 
+      exclude: ['/'],
     }
   },
 })
