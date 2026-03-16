@@ -1,15 +1,8 @@
 <script setup lang="ts">
 import { onClickOutside } from '@vueuse/core'
-import { useAutocomplete } from '~/services/destinations/autocomplete'
-
 // --- TYPES ---
-interface Destination {
-  label: string
-  description: string
-  lat: number
-  lon: number
-  img: string | null
-}
+
+import { useAutocomplete, type Destination } from '~/services/destinations/autocomplete'
 
 // --- AUTOCOMPLÉTION ---
 const { suggestions, loading: loadingSuggestions, search, clear } = useAutocomplete()
@@ -79,8 +72,6 @@ async function genererItineraire() {
       query: {
         destination: destination.value,
         categories: pointsInteret.value.join(','),
-        lat: selectedDestination.value?.lat,
-        lon: selectedDestination.value?.lon,
       }
     })
     lieux.value = data
@@ -151,18 +142,18 @@ function toggleInteret(item: string) {
               <div class="space-y-1">
                 <button
                   v-for="item in suggestions"
-                  :key="item.label + item.description"
+                  :key="item.label + item.position"
                   class="w-full flex items-center justify-between p-3 rounded-xl hover:bg-[#2A2A24] transition-colors group"
                   @click="selectCity(item)"
                 >
                   <div class="flex items-center gap-4">
                     <div class="w-10 h-10 rounded-full overflow-hidden ring-1 ring-gray-700 bg-[#2A2A24] flex items-center justify-center shrink-0">
-                      <img v-if="item.img" :src="item.img" class="w-full h-full object-cover" />
+                      <img v-if="item.image" :src="item.image" class="w-full h-full object-cover" />
                       <span v-else class="text-[#D9B54A] font-bold text-sm">{{ item.label[0] }}</span>
                     </div>
                     <div class="text-left">
                       <p class="text-white font-medium text-sm group-hover:text-[#D9B54A]">{{ item.label }}</p>
-                      <p class="text-gray-500 text-xs">{{ item.description }}</p>
+                      <p class="text-gray-500 text-xs">{{ item.position }}</p>
                     </div>
                   </div>
                   <UIcon name="i-heroicons-chevron-right" class="text-gray-600 w-4 h-4" />
