@@ -1,28 +1,35 @@
 <script setup lang="ts">
 import type { NavigationMenuItem } from '@nuxt/ui'
 
-
 const route = useRoute()
+const user = useSupabaseUser()
+const supabase = useSupabaseClient()
+const router = useRouter()
+
+async function logout() {
+  await supabase.auth.signOut()
+  router.push('/')
+}
 
 const items = computed<NavigationMenuItem[]>(() => [{
   label: 'Accueil',
   to: '/',
-  icon: 'i-lucide-home', // Icône maison classique
+  icon: 'i-lucide-home',
   active: route.path === '/'
 }, {
   label: 'Mon Planning',
   to: '/planner',
-  icon: 'i-lucide-map-pin-check-inside', // Représente les destinations validées sur une carte
+  icon: 'i-lucide-map-pin-check-inside',
   active: route.path.startsWith('/planner')
 }, {
   label: 'Mes Voyages',
   to: '/trips',
-  icon: 'i-lucide-briefcase', // Représente les voyages sauvegardés (mallette)
+  icon: 'i-lucide-briefcase',
   active: route.path.startsWith('/trips')
 }, {
   label: 'Découvrir',
   to: '/explore',
-  icon: 'i-lucide-compass', // La boussole pour l'exploration et les suggestions IA
+  icon: 'i-lucide-compass',
   active: route.path.startsWith('/explore')
 }])
 </script>
@@ -30,23 +37,41 @@ const items = computed<NavigationMenuItem[]>(() => [{
 <template>
   <UHeader toggle-side="left">
     <template #title>
-
-<a href="/" class="flex gap-2">
-<img src="/assets/images/logo.png" alt="Mon Logo" width="30" height="20" />
-<span color="text-primary">Voyages facile</span>
-</a>
+      <a href="/" class="flex gap-2">
+        <img src="/assets/images/logo.png" alt="Mon Logo" width="30" height="20" />
+        <span color="text-primary">Voyages facile</span>
+      </a>
     </template>
 
     <UNavigationMenu :items="items" />
 
     <template #right>
-      <UButton>Connexion</UButton>
+      <!-- Non connecté -->
+      <template v-if="!user">
+        <UButton to="/login" variant="ghost">Connexion</UButton>
+        <UButton to="/register">Inscription</UButton>
+      </template>
+
+      <!-- Connecté -->
+      <template v-else>
+        <UDropdownMenu :items="[[
+          { label: user.user_metadata?.first_name || user.email, type: 'label' },
+          { label: 'Mon profil', to: '/profile', icon: 'i-lucide-user' },
+          { label: 'Mes voyages', to: '/trips', icon: 'i-lucide-briefcase' },
+        ], [
+          { label: 'Se déconnecter', icon: 'i-lucide-log-out', color: 'error', onSelect: logout }
+        ]]">
+          <UButton variant="ghost" icon="i-lucide-circle-user-round">
+            {{ user.user_metadata?.first_name || user.email }}
+          </UButton>
+        </UDropdownMenu>
+      </template>
+
       <UColorModeButton />
     </template>
 
     <template #body>
-      <UNavigationMenu :items="items    " orientation="vertical" class="-mx-2.5" />
+      <UNavigationMenu :items="items" orientation="vertical" class="-mx-2.5" />
     </template>
   </UHeader>
 </template>
-

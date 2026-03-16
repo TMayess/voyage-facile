@@ -6,6 +6,6 @@ definePageMeta({
 
 <template>
   <div class="flex min-h-screen items-center justify-center p-4 bg-[#0e0e0b]">
-    <AuthLoginForm />
+    <AuthSignUpFrom />
   </div>
 </template>
