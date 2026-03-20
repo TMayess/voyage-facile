@@ -6,7 +6,7 @@ const FSQ_BASE_URL = 'https://places-api.foursquare.com/places/search'
 export async function searchPlaces(
     step: ItineraryStep,
     location: string,
-    minPrice: Affordability = 2,
+    _minPrice: Affordability = 2,
     limit = 4
 ) {
     const params = new URLSearchParams({
@@ -19,7 +19,7 @@ export async function searchPlaces(
 
     const res = await fetch(`${FSQ_BASE_URL}?${params.toString()}`, {
         headers: {
-            'Authorization': `Bearer MOFXWSGFJ3HLMZ3NLZFNBQPUOAC0D5O5INGKA4WXV1IQOYMS`,
+            'Authorization': `Bearer ${process.env.FOURSQUARE_API_KEY}`,
             'Accept': 'application/json',
             'X-Places-Api-Version': '2025-06-17',
         },

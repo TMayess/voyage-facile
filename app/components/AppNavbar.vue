@@ -33,8 +33,8 @@ const items = computed<NavigationMenuItem[]>(() => [{
   <UHeader toggle-side="left">
     <template #title>
       <a href="/" class="flex gap-2">
-        <img src="/assets/images/logo.png" alt="Mon Logo" width="30" height="20" />
-        <span color="text-primary">Voyages facile</span>
+        <img src="~/assets/images/logo.png" alt="Mon Logo" width="30" height="20" />
+        <span class="text-primary font-bold">Voyages facile</span>
       </a>
     </template>
 

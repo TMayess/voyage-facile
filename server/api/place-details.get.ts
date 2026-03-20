@@ -1,6 +1,5 @@
-
-  const FSQ_API_KEY = "MOFXWSGFJ3HLMZ3NLZFNBQPUOAC0D5O5INGKA4WXV1IQOYMS"
 export default defineEventHandler(async (event) => {
+  const FSQ_API_KEY = useRuntimeConfig().foursquareApiKey
   const { id } = getQuery(event)
 
   if (!id) {
@@ -62,19 +61,11 @@ export default defineEventHandler(async (event) => {
       height: photo.height,
     }))
 
-    // Construire les liens réseaux sociaux
     const social = place.social_media || {}
-    const socialLinks = {
-      instagram: social.instagram ? `https://instagram.com/${social.instagram}` : null,
-      facebook: social.facebook_id ? `https://facebook.com/${social.facebook_id}` : null,
-      twitter: social.twitter ? `https://twitter.com/${social.twitter}` : null,
-    }
 
     return {
       fsq_place_id: place.fsq_place_id,
       name: place.name,
-      link: place.link,
-      placemaker_url: place.placemaker_url,
 
       // Coordonnées
       latitude: place.latitude,
@@ -82,26 +73,27 @@ export default defineEventHandler(async (event) => {
 
       // Localisation
       location: place.location,
-      extended_location: place.extended_location,
 
       // Contact
       website: place.website,
       tel: place.tel,
       email: place.email,
-      social: socialLinks,
+
+      // Réseaux sociaux — handles bruts (le client construit les URLs)
+      social_media: {
+        instagram:   social.instagram   || null,
+        facebook_id: social.facebook_id || null,
+        twitter:     social.twitter     || null,
+      },
 
       // Classement
-      categories: place.categories,
-      chains: place.chains,
+      categories:     place.categories,
       related_places: place.related_places,
-      store_id: place.store_id,
 
       // Infos
-      rating: place.rating,
-      price: place.price,
-      hours: place.hours,
-      description: place.description,
-      date_created: place.date_created,
+      rating:        place.rating,
+      price:         place.price,
+      description:   place.description,
       date_refreshed: place.date_refreshed,
 
       // Médias

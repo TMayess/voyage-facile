@@ -120,12 +120,12 @@ const initials = computed(() => {
         <div class="flex items-center gap-4">
           <NuxtLink
             to="/"
-            class="w-10 h-10 flex-shrink-0 rounded-xl  flex items-center justify-center text-gray-400 hover:text-yellow-400 hover:border-yellow-400/50 transition-all"
+            class="w-10 h-10 flex-shrink-0 rounded-xl  flex items-center justify-center text-gray-400 hover:text-primary hover:border-yellow-400/50 transition-all"
           >
             <UIcon name="i-heroicons-arrow-left" class="w-5 h-5" />
           </NuxtLink>
           <div>
-            <p class="text-[10px] font-black tracking-[0.2em] uppercase text-yellow-400 mb-1">Compte</p>
+            <p class="text-[10px] font-black tracking-[0.2em] uppercase text-primary mb-1">Compte</p>
             <h1 class="text-3xl font-black tracking-tight text-white">Mon Profil</h1>
           </div>
         </div>
@@ -136,7 +136,7 @@ const initials = computed(() => {
 
       <!-- ───── Avatar ───── -->
       <div class="flex justify-center">
-        <div class="w-20 h-20 rounded-3xl bg-yellow-400 flex items-center justify-center shadow-lg shadow-yellow-400/20">
+        <div class="w-20 h-20 rounded-3xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
           <span class="text-2xl font-black text-black tracking-tight">{{ initials }}</span>
         </div>
       </div>
@@ -166,7 +166,7 @@ const initials = computed(() => {
                 v-model="firstName"
                 type="text"
                 placeholder="Votre prénom"
-                class="w-full bg-gray-950 border border-gray-800 focus:border-yellow-400/60 focus:ring-0 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-gray-600 outline-none transition-colors"
+                class="w-full bg-gray-950 border border-gray-800 focus:border-primary/60 focus:ring-0 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-gray-600 outline-none transition-colors"
               />
             </div>
           </div>
@@ -180,7 +180,7 @@ const initials = computed(() => {
                 v-model="lastName"
                 type="text"
                 placeholder="Votre nom"
-                class="w-full bg-gray-950 border border-gray-800 focus:border-yellow-400/60 focus:ring-0 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-gray-600 outline-none transition-colors"
+                class="w-full bg-gray-950 border border-gray-800 focus:border-primary/60 focus:ring-0 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-gray-600 outline-none transition-colors"
               />
             </div>
           </div>
@@ -202,7 +202,7 @@ const initials = computed(() => {
           <!-- Save button -->
           <button
             :disabled="loadingProfile"
-            class="w-full flex items-center justify-center gap-2 bg-yellow-400 hover:bg-yellow-300 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] text-black font-black text-sm py-3 rounded-xl transition-all"
+            class="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] text-black font-black text-sm py-3 rounded-xl transition-all"
             @click="saveProfile"
           >
             <UIcon v-if="loadingProfile" name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin" />
@@ -230,7 +230,7 @@ const initials = computed(() => {
                 v-model="newPassword"
                 :type="showNew ? 'text' : 'password'"
                 placeholder="••••••••"
-                class="w-full bg-gray-950 border border-gray-800 focus:border-yellow-400/60 rounded-xl pl-10 pr-10 py-3 text-sm text-white placeholder-gray-600 outline-none transition-colors"
+                class="w-full bg-gray-950 border border-gray-800 focus:border-primary/60 rounded-xl pl-10 pr-10 py-3 text-sm text-white placeholder-gray-600 outline-none transition-colors"
               />
               <button
                 class="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-400 transition-colors"
@@ -250,7 +250,7 @@ const initials = computed(() => {
                 v-model="confirmPassword"
                 :type="showConfirm ? 'text' : 'password'"
                 placeholder="••••••••"
-                class="w-full bg-gray-950 border border-gray-800 focus:border-yellow-400/60 rounded-xl pl-10 pr-10 py-3 text-sm text-white placeholder-gray-600 outline-none transition-colors"
+                class="w-full bg-gray-950 border border-gray-800 focus:border-primary/60 rounded-xl pl-10 pr-10 py-3 text-sm text-white placeholder-gray-600 outline-none transition-colors"
                 :class="confirmPassword && newPassword !== confirmPassword ? 'border-red-500/60' : ''"
               />
               <button
@@ -286,7 +286,7 @@ const initials = computed(() => {
                   newPassword.length >= i * 3
                     ? i <= 1 ? 'bg-red-500'
                     : i <= 2 ? 'bg-orange-400'
-                    : i <= 3 ? 'bg-yellow-400'
+                    : i <= 3 ? 'bg-primary'
                     : 'bg-emerald-400'
                     : 'bg-gray-800'
                 "
@@ -318,7 +318,7 @@ const initials = computed(() => {
           <!-- Save button -->
           <button
             :disabled="loadingPassword"
-            class="w-full flex items-center justify-center gap-2 bg-yellow-400 hover:bg-yellow-300 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] text-black font-black text-sm py-3 rounded-xl transition-all"
+            class="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] text-black font-black text-sm py-3 rounded-xl transition-all"
             @click="savePassword"
           >
             <UIcon v-if="loadingPassword" name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin" />

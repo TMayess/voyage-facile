@@ -28,7 +28,7 @@ const socials = [
     
     <template #left>
       <div class="flex flex-col gap-1">
-        <p class="text-sm font-bold text-[#D4AF37] tracking-wider uppercase">
+        <p class="text-sm font-bold text-primary tracking-wider uppercase">
           Voyages facile
         </p>
       </div>
@@ -47,7 +47,7 @@ const socials = [
           :to="social.to"
           target="_blank"
           :aria-label="social.label"
-          class="hover:text-[#D4AF37] transition-colors"
+          class="hover:text-primary transition-colors"
         />
       </div>
     </template>

@@ -1,18 +1,18 @@
 import type { ItineraryModel, ItineraryStep } from '~/types/itinerary'
 
-// Update entire itinerary
+// Update entire itinerary — only sends defined fields to avoid overwriting with null
 export const updateItinerary = async (id: string, itinerary: Partial<ItineraryModel>) => {
     const supabase = useSupabaseClient()
 
+    const fields: Record<string, any> = { updated_at: new Date().toISOString() }
+    if (itinerary.name        !== undefined) fields.name         = itinerary.name
+    if (itinerary.description !== undefined) fields.description  = itinerary.description
+    if (itinerary.affordability !== undefined) fields.affordability = itinerary.affordability
+    if (itinerary.steps       !== undefined) fields.steps        = itinerary.steps
+
     const { data, error } = await supabase
         .from('itineraries')
-        .update({
-            name: itinerary.name,
-            description: itinerary.description,
-            affordability: itinerary.affordability,
-            steps: itinerary.steps,
-            updated_at: new Date().toISOString()
-        })
+        .update(fields)
         .eq('id', id)
         .select()
         .single()

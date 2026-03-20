@@ -6,7 +6,9 @@ export default defineNuxtConfig({
   css: ["~/assets/css/main.css"],
 
   runtimeConfig: {
-    foursquareApiKey: process.env.FOURSQUARE_API_KEY, 
+    foursquareApiKey: process.env.FOURSQUARE_API_KEY,
+    locationiqApiKey: process.env.LOCATIONIQ_API_KEY,
+    googleAiApiKey: process.env.GOOGLE_AI_API_KEY,
   },
 
 supabase: {

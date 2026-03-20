@@ -1,10 +1,10 @@
 // server/api/places/search.get.ts
 import { defineEventHandler, getQuery, createError } from 'h3'
 
-const FSQ_API_KEY = 'MOFXWSGFJ3HLMZ3NLZFNBQPUOAC0D5O5INGKA4WXV1IQOYMS'
 const FSQ_BASE_URL = 'https://places-api.foursquare.com/places/search'
 
 export default defineEventHandler(async (event) => {
+  const FSQ_API_KEY = useRuntimeConfig().foursquareApiKey
     const query = getQuery(event)
 
     const {

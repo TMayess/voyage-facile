@@ -1,13 +1,18 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
 
-@theme{
-  --color-primary: #d4af35;
+@theme {
+  /* ── Gold / Primary ── */
+  --color-primary: #D9B54A;
+  --color-primary-dark: #C4A342;
+  --color-primary-light: #E8C947;
 
-
-
+  /* ── Dark surfaces ── */
+  --color-surface: #1A1A14;
+  --color-surface-raised: #2A2A24;
+  --color-page: #0F0F0A;
+  --color-divider: #2A2A20;
 }
-
 
 @layer base {
   :root {
