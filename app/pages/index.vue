@@ -4,5 +4,5 @@ import TravelForm from '~/components/TravelForm.vue';
 </script>
 
 <template>
-  <p><TravelForm/></p>
+<TravelForm/>
 </template>

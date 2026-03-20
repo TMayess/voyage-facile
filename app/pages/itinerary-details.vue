@@ -1,124 +1,241 @@
+<script setup>
+import 'leaflet/dist/leaflet.css'
+import { ref, computed, watch } from "vue"
+import { useRoute } from "vue-router"
+
+const route = useRoute()
+const placeId = route.query.id || "4adcda09f964a520e83321e3" 
+
+const map = ref(null)
+const zoom = ref(6)
+
+const { data: place, pending, error, refresh } = await useFetch('/api/place-details', {
+  query: { id: placeId },
+  immediate: false, 
+})
+
+const wikiImage = ref(null)
+
+watch(place, async (newData) => {
+  if (!newData) return
+  
+  try {
+    const cleanName = newData.name.split('(')[0].trim()
+    const title = encodeURIComponent(cleanName)
+
+    const url = `https://en.wikipedia.org/w/api.php?action=query&titles=${title}&prop=pageimages&format=json&pithumbsize=1000&origin=*&redirects=1`
+    
+    const res = await fetch(url)
+    const json = await res.json()
+    
+    const pages = json.query?.pages
+    if (pages) {
+      const firstPage = Object.values(pages)[0]
+      if (firstPage.thumbnail) {
+        wikiImage.value = firstPage.thumbnail.source
+      } else {
+        wikiImage.value = "https://images.unsplash.com/photo-1499856871958-5b9627545d1a?q=80&w=1000"
+      }
+    }
+    setTimeout(() => {
+      if (map.value?.leafletObject) {
+        map.value.leafletObject.invalidateSize()
+      }
+    }, 300)
+    
+  } catch (err) {
+    console.error("Erreur image Wikipedia:", err)
+    wikiImage.value = "https://images.unsplash.com/photo-1499856871958-5b9627545d1a?q=80&w=1000"
+  }
+})
+
+// Correction de l'URL Google Maps
+const googleMapsUrl = computed(() => {
+  if (!place.value?.latitude || !place.value?.longitude) return '#'
+  return `https://www.google.com/maps/search/?api=1&query=${place.value.latitude},${place.value.longitude}`
+})
+
+
+const monumentCoords = computed(() => {
+  if (place.value?.latitude && place.value?.longitude) {
+    return [place.value.latitude, place.value.longitude]
+  }
+  if (place.value?.geocodes?.main) {
+    return [place.value.geocodes.main.latitude, place.value.geocodes.main.longitude]
+  }
+  return [47.21322, -1.559482]
+})
+
+
+const loadDetails = () => refresh()
+</script>
+
 <template>
-  <div class="min-h-screen bg-[#0a0a0a] text-white p-6 font-sans">
-    <div class="max-w-4xl mx-auto space-y-8">
+  <div class="min-h-screen text-white p-4 md:p-8 font-sans">
+    <div class="max-w-5xl mx-auto space-y-8">
+
+      <div class="">
       
-      <header class="relative h-[400px] rounded-3xl overflow-hidden shadow-2xl">
-        <img 
-          src="https://images.unsplash.com/photo-1554944853-7326c999c4b2?auto=format&fit=crop&q=80&w=1200" 
-          alt="Musée d'Art Moderne"
-          class="w-full h-full object-cover"
+        <UButton
+          :loading="pending"
+          icon="i-heroicons-magnifying-glass"
+          size="xl"
+          color="amber"
+          variant="solid"
+          label="Charger les détails "
+          class="rounded-full px-8 shadow-lg shadow-amber-500/20"
+          @click="loadDetails"
         />
-        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-8">
-          <UBadge color="amber" variant="solid" size="xs" class="w-fit mb-3 uppercase font-bold tracking-wider">Culture</UBadge>
-          <h1 class="text-5xl font-bold mb-2">Musée d'Art Moderne</h1>
-          <div class="flex items-center text-gray-300 text-sm">
-            <UIcon name="i-heroicons-map-pin" class="mr-2 text-amber-400" />
-            11 Avenue du Président Wilson, 75116 Paris
+        <p v-if="error" class="text-[#D9B54A] text-sm italic">{{ error.statusMessage || 'Erreur lors du chargement' }}</p>
+      </div>
+
+      <div v-if="pending" class="flex flex-col justify-center items-center py-20 space-y-4">
+        <UIcon name="i-heroicons-arrow-path" class="animate-spin text-[#D9B54A] text-5xl" />
+        <p class="text-gray-500 animate-pulse">Récupération des données Foursquare & Wikipedia...</p>
+      </div>
+
+      <div v-else-if="place" class="space-y-8 animate-in fade-in zoom-in-95 duration-500">
+
+        <header class="relative h-[500px] rounded-[2.5rem] overflow-hidden group shadow-2xl">
+          <img 
+            :src="wikiImage || 'https://images.unsplash.com/photo-1549918830-b1fea4eBD0c2?q=80&w=1000'" 
+            class="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
+            alt="Hero image"
+          />
+          <div class="absolute inset-0 bg-gradient-to-t from-[#0a0a0b] via-black/20 to-transparent flex flex-col justify-end p-6 md:p-12">
+            <div class="flex gap-2 mb-4">
+              <UBadge v-for="cat in place.categories" :key="cat.fsq_category_id" color="amber" variant="subtle" class="backdrop-blur-md">
+                {{ cat.name }}
+              </UBadge>
+            </div>
+            <h1 class="text-4xl md:text-6xl font-black mb-4 leading-tight">{{ place.name }}</h1>
+            <div class="flex items-center text-gray-300 bg-white/10 w-fit px-4 py-2 rounded-full backdrop-blur-md border border-white/10">
+              <UIcon name="i-heroicons-map-pin" class="mr-2 text-[#D9B54A]" />
+              {{ place.location?.formatted_address }}
+            </div>
+          </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          
+          <div class="lg:col-span-2 space-y-8">
+            
+            <section class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <UCard class="bg-white/5 border-white/10 ring-0">
+                <template #header><h3 class="font-bold flex items-center gap-2"><UIcon name="i-heroicons-phone" /> Contact</h3></template>
+                <p class="text-gray-400">{{ place.tel || 'Non renseigné' }}</p>
+                <p class="text-gray-400 mt-2 truncate">{{ place.email }}</p>
+              </UCard>
+              <UCard class="bg-white/5 border-white/10 ring-0">
+                <template #header><h3 class="font-bold flex items-center gap-2"><UIcon name="i-heroicons-globe-alt" /> Site Web</h3></template>
+                <a v-if="place.website" :href="place.website" target="_blank" class="text-[#D9B54A] hover:underline truncate block">
+                  {{ place.website.replace('https://', '') }}
+                </a>
+                <span v-else class="text-gray-500 italic">Aucun site disponible</span>
+              </UCard>
+            </section>
+
+            <section v-if="place.social_media" class="space-y-4">
+              <h2 class="text-2xl font-bold">Communauté</h2>
+              <div class="flex flex-wrap gap-3">
+                <UButton v-if="place.social_media.instagram" :to="`https://instagram.com/${place.social_media.instagram}`" target="_blank" icon="i-simple-icons-instagram" color="pink" variant="soft">Instagram</UButton>
+                <UButton v-if="place.social_media.facebook_id" :to="`https://facebook.com/${place.social_media.facebook_id}`" target="_blank" icon="i-simple-icons-facebook" color="blue" variant="soft">Facebook</UButton>
+                <UButton v-if="place.social_media.twitter" :to="`https://twitter.com/${place.social_media.twitter}`" target="_blank" icon="i-simple-icons-twitter" color="sky" variant="soft">Twitter / X</UButton>
+              </div>
+            </section>
+
+            <section v-if="place.related_places?.children" class="space-y-4">
+              <h2 class="text-2xl font-bold">Dans ce lieu</h2>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div v-for="child in place.related_places.children" :key="child.fsq_place_id" class="p-4 rounded-2xl bg-white/5 border border-white/10 flex items-center gap-4 hover:bg-white/10 transition-colors">
+                  <div class="p-3 bg-amber-500/20 rounded-xl">
+                    <UIcon name="i-heroicons-building-library" class="text-[#D9B54A] text-xl" />
+                  </div>
+                  <div>
+                    <p class="font-bold text-sm">{{ child.name }}</p>
+                    <p class="text-xs text-gray-500">{{ child.categories?.[0]?.name }}</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+
+        <aside class="space-y-6">
+  <div class="sticky top-8 space-y-4">
+    <UCard class="bg-[#D9B54A] border-none">
+      <div class="text-black space-y-4">
+        <div class="flex items-center gap-3">
+          <UIcon name="i-heroicons-calendar" class="text-2xl" />
+          <div>
+            <p class="text-xs font-black uppercase opacity-60">Dernière mise à jour</p>
+            <p class="font-bold">{{ new Date(place.date_refreshed).toLocaleDateString('fr-FR') }}</p>
           </div>
         </div>
         <UButton
-          icon="i-heroicons-x-mark"
-          color="gray"
-          variant="soft"
-          class="absolute top-6 right-6 rounded-full bg-black/40 backdrop-blur-md"
+          block
+          color="white"
+          size="xl"
+          label="Itinéraire Google Maps"
+          icon="i-heroicons-map-pin"
+          class="font-black"
+          :to="googleMapsUrl"
+          target="_blank"
         />
-      </header>
+      </div>
+    </UCard>
 
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        <div class="lg:col-span-2 space-y-8">
-          <section>
-            <div class="flex items-center gap-2 mb-4">
-              <UIcon name="i-heroicons-sparkles-solid" class="text-amber-400 text-xl" />
-              <h2 class="text-xl font-bold text-gray-100">Pourquoi l'IA l'a choisi</h2>
-            </div>
-            <p class="text-gray-400 leading-relaxed text-sm">
-              Ce musée emblématique a été sélectionné pour sa collection exceptionnelle d'art du XXe siècle et son architecture monumentale offrant une expérience culturelle immersive au cœur de Paris. Il représente le parfait équilibre entre l'histoire de l'art moderne et la vitalité contemporaine.
-            </p>
-          </section>
+    <UCard :ui="{ body: { padding: 'p-0' } }" class="overflow-hidden border-white/10 bg-white/5 h-[300px]">
+  <ClientOnly>
+    <LMap
+      ref="map"
+      :zoom="15"
+      :center="monumentCoords"
+      :use-global-leaflet="false"
+      style="height: 100%; width: 100%"
+    >
+      <LTileLayer
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        attribution='&copy; <a href="https://www.openstreetmap.org/">OSM</a>'
+        layer-type="base"
+        name="OpenStreetMap"
+      />
+      <LMarker :lat-lng="monumentCoords" />
+    </LMap>
+    
+    <template #fallback>
+      <div class="flex items-center justify-center h-full bg-white/5">
+        <UIcon name="i-heroicons-arrow-path" class="animate-spin text-2xl text-gray-500" />
+      </div>
+    </template>
+  </ClientOnly>
+</UCard>
 
-          <div class="grid grid-cols-3 gap-4">
-            <UCard class="bg-white/5 border-none text-center" :ui="{ body: { padding: 'px-4 py-6' } }">
-              <UIcon name="i-heroicons-clock" class="text-amber-400 mb-2 text-xl" />
-              <div class="text-[10px] uppercase text-gray-500 font-bold mb-1">Durée</div>
-              <div class="font-bold">1h30</div>
-            </UCard>
-            <UCard class="bg-white/5 border-none text-center" :ui="{ body: { padding: 'px-4 py-6' } }">
-              <UIcon name="i-heroicons-banknotes" class="text-amber-400 mb-2 text-xl" />
-              <div class="text-[10px] uppercase text-gray-500 font-bold mb-1">Prix</div>
-              <div class="font-bold">Gratuit</div>
-            </UCard>
-            <UCard class="bg-white/5 border-none text-center" :ui="{ body: { padding: 'px-4 py-6' } }">
-              <UIcon name="i-heroicons-users" class="text-amber-400 mb-2 text-xl" />
-              <div class="text-[10px] uppercase text-gray-500 font-bold mb-1">Affluence</div>
-              <div class="font-bold">Faible</div>
-            </UCard>
-          </div>
+    <div class="p-6 rounded-3xl border border-white/10 bg-white/5 text-sm text-gray-400 leading-relaxed italic">
+      "Ce monument est classé dans la catégorie monument historique. Les données sont fournies par Foursquare API v3."
+    </div>
+  </div>
+</aside>
         </div>
-
-        <aside>
-          <UCard class="bg-[#111218] border-none ring-1 ring-white/10 sticky top-6">
-            <div class="space-y-6">
-              <div>
-                <h3 class="font-bold mb-2">Planifier votre visite</h3>
-                <p class="text-xs text-gray-400">Optimisez votre trajet avec notre assistant intelligent.</p>
-              </div>
-
-              <div class="space-y-3">
-                <UButton
-                  block
-                  color="amber"
-                  class="font-bold py-3 text-black"
-                  label="S'Y RENDRE"
-                  icon="i-heroicons-truck"
-                />
-                <UButton
-                  block
-                  variant="outline"
-                  color="amber"
-                  class="font-bold py-3 bg-transparent border-2 border-amber-400/30 hover:bg-amber-400/10"
-                  label="RÉGÉNÉRER CETTE ÉTAPE"
-                  icon="i-heroicons-arrow-path"
-                />
-              </div>
-              
-              <p class="text-[10px] text-center italic text-gray-500">
-                Ouvert aujourd'hui : 10h00 - 18h00
-              </p>
-            </div>
-          </UCard>
-        </aside>
       </div>
 
-      <section class="space-y-4">
-        <div class="flex justify-between items-end">
-          <h2 class="text-xl font-bold">Localisation</h2>
-          <UButton variant="link" color="amber" size="xs" class="underline decoration-amber-400/30">Ouvrir dans Maps</UButton>
+      <div v-else class="text-center py-32 border-2 border-dashed border-white/5 rounded-[3rem]">
+        <div class="max-w-xs mx-auto space-y-4">
+          <UIcon name="i-heroicons-circle-stack" class="text-5xl text-gray-700" />
+          <p class="text-gray-500">Prêt pour l'exploration ? Cliquez sur le bouton de chargement en haut de page.</p>
         </div>
-        <div class="h-64 rounded-3xl overflow-hidden grayscale brightness-75 border border-white/10 relative">
-          <div class="absolute inset-0 bg-[#1a1a1a] flex items-center justify-center">
-             <UIcon name="i-heroicons-map" class="text-5xl text-white/10" />
-          </div>
-          <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-            <div class="relative flex items-center justify-center">
-              <div class="absolute w-12 h-12 bg-white/20 rounded-full animate-ping"></div>
-              <UIcon name="i-heroicons-map-pin-solid" class="text-4xl text-amber-400 relative z-10" />
-            </div>
-          </div>
-        </div>
-      </section>
+      </div>
 
     </div>
   </div>
-  <AddStepModal v-model="showModal" />
 </template>
 
-<script setup>
-const showModal = ref(true)
-</script>
-
-<style>
-.dark-card-gradient {
-  background: linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 100%);
+<style scoped>
+/* Optionnel : ajout d'un flou sur l'image au survol */
+header::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 100px rgba(0,0,0,0.5);
+  pointer-events: none;
 }
 </style>
