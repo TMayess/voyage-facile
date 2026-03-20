@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen  text-white font-sans pb-32">
+  <div class="min-h-screen text-white font-sans pb-32">
 
     <!-- ───── Loading State ───── -->
     <Transition name="fade">
@@ -36,7 +36,7 @@
       <div v-if="itinerary && !pending">
 
         <!-- ───── Header ───── -->
-        <div class="bg-gradient-to-b  px-5 pt-8 pb-6">
+        <div class="bg-gradient-to-b px-5 pt-8 pb-6">
           <div class="max-w-2xl mx-auto">
 
             <!-- Back + Title -->
@@ -48,7 +48,6 @@
                 <UIcon name="i-heroicons-arrow-left" class="w-5 h-5" />
               </NuxtLink>
               <div class="flex-1 min-w-0">
-                <!-- Style badge -->
                 <div class="flex items-center gap-2 mb-2">
                   <span
                     class="inline-flex items-center gap-1.5 text-[10px] font-black tracking-[0.15em] uppercase px-2.5 py-0.5 rounded-full border"
@@ -91,6 +90,115 @@
           </div>
         </div>
 
+        <!-- ───── Map ───── -->
+        <div class="max-w-2xl mx-auto px-5 pt-6">
+          <div class="rounded-2xl overflow-hidden border border-white/10 bg-white/5" style="height:400px;">
+            <ClientOnly>
+              <LMap
+                ref="map"
+                :zoom="13"
+                :center="mapCenter"
+                :use-global-leaflet="false"
+                style="height:400px; width:100%; z-index:0;"
+                @ready="onMapReady"
+              >
+                <LTileLayer
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  attribution='&copy; <a href="https://www.openstreetmap.org/">OSM</a>'
+                  layer-type="base"
+                  name="OpenStreetMap"
+                />
+
+                <!-- Markers numérotés -->
+                <template v-for="marker in stepMarkers" :key="marker.index">
+                  <LMarker
+                    :lat-lng="marker.coords"
+                    :icon="createNumberedIcon(marker.label, !!marker.meal, activeMarkerIndex === marker.index)"
+                    @click="activeMarkerIndex = marker.index"
+                  >
+                    <LPopup :options="{ maxWidth: 260 }">
+                      <div style="font-family:sans-serif; color:#111; min-width:200px;">
+
+                        <!-- Photo -->
+                        <div
+                          v-if="marker.photo"
+                          style="height:90px; overflow:hidden; border-radius:8px; margin-bottom:8px;"
+                        >
+                          <img
+                            :src="`${marker.photo.prefix}300x200${marker.photo.suffix}`"
+                            style="width:100%; height:100%; object-fit:cover;"
+                          />
+                        </div>
+
+                        <!-- Numéro + horaire -->
+                        <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+                          <span style="
+                            width:22px; height:22px; border-radius:50%;
+                            background:#D9B54A; color:#000;
+                            font-size:11px; font-weight:900;
+                            display:flex; align-items:center; justify-content:center;
+                            flex-shrink:0;
+                          ">{{ marker.label }}</span>
+                          <span style="font-size:10px; color:#666; font-weight:700; text-transform:uppercase; letter-spacing:.08em;">
+                            {{ marker.startHour }} — {{ marker.endHour }}
+                            <span v-if="marker.meal" style="margin-left:4px; color:#f97316;">· {{ marker.meal }}</span>
+                          </span>
+                        </div>
+
+                        <!-- Nom du step -->
+                        <p style="font-size:13px; font-weight:800; margin:0 0 2px;">{{ marker.stepName }}</p>
+
+                        <!-- Nom du lieu -->
+                        <p style="font-size:11px; color:#555; margin:0 0 6px;">📍 {{ marker.placeName }}</p>
+
+                        <!-- Rating -->
+                        <span v-if="marker.rating" style="
+                          font-size:10px; font-weight:800;
+                          background:#fef3c7; color:#92400e;
+                          padding:2px 7px; border-radius:6px;
+                        ">★ {{ marker.rating.toFixed(1) }}</span>
+                      </div>
+                    </LPopup>
+                  </LMarker>
+                </template>
+
+              </LMap>
+
+              <template #fallback>
+                <div class="flex items-center justify-center bg-white/5" style="height:400px;">
+                  <div class="flex flex-col items-center gap-3">
+                    <UIcon name="i-heroicons-arrow-path" class="animate-spin text-2xl text-gray-500" />
+                    <p class="text-xs text-gray-600">Chargement de la carte…</p>
+                  </div>
+                </div>
+              </template>
+            </ClientOnly>
+          </div>
+
+          <!-- Légende des markers -->
+          <div class="flex flex-wrap gap-2 mt-3">
+            <button
+              v-for="marker in stepMarkers"
+              :key="marker.index"
+              @click="activeMarkerIndex = activeMarkerIndex === marker.index ? null : marker.index"
+              class="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-semibold transition-all"
+              :class="activeMarkerIndex === marker.index
+                ? 'bg-yellow-400/20 border-yellow-400/50 text-yellow-300'
+                : marker.meal
+                  ? 'bg-orange-500/10 border-orange-500/20 text-orange-400 hover:border-orange-400/40'
+                  : 'bg-white/5 border-white/10 text-gray-400 hover:border-gray-600'"
+            >
+              <span
+                class="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-black"
+                :class="activeMarkerIndex === marker.index
+                  ? 'bg-yellow-400 text-black'
+                  : marker.meal ? 'bg-orange-500 text-white' : 'bg-gray-700 text-white'"
+              >{{ marker.label }}</span>
+              {{ marker.startHour }}
+            </button>
+          </div>
+        </div>
+
         <!-- ───── Timeline ───── -->
         <div class="max-w-2xl mx-auto px-5 pt-8">
           <div class="relative">
@@ -115,7 +223,7 @@
                   @drop="onDrop(index)"
                   @dragend="draggedStepIndex = null; dragOverStepIndex = null"
                 >
-                  <!-- Timeline dot with drag handle -->
+                  <!-- Timeline dot -->
                   <div class="flex-shrink-0 mt-5 z-10 relative group">
                     <div
                       v-if="step.meal"
@@ -125,23 +233,30 @@
                     </div>
                     <div
                       v-else
-                      class="w-10 h-10 rounded-full bg-yellow-400/10 border-2 border-yellow-400/30 flex items-center justify-center"
+                      class="w-10 h-10 rounded-full flex items-center justify-center font-black text-sm transition-all"
+                      :class="activeMarkerIndex === index
+                        ? 'bg-yellow-400 text-black border-2 border-yellow-400'
+                        : 'bg-yellow-400/10 border-2 border-yellow-400/30 text-yellow-400'"
                     >
-                      <UIcon name="i-heroicons-map-pin" class="w-4 h-4 text-yellow-400" />
+                      {{ index + 1 }}
                     </div>
-                    <!-- Drag handle indicator -->
+                    <!-- Drag handle -->
                     <div class="absolute inset-0 rounded-full bg-white/0 group-hover:bg-white/5 flex items-center justify-center transition-all">
                       <UIcon name="i-heroicons-bars-3" class="w-3 h-3 text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
                   </div>
 
                   <!-- Card -->
-                  <div class="flex-1 rounded-2xl p-5 bg-[#1A1A14] border border-[#2A2A20]  hover:border-gray-700 transition-all duration-200">
+                  <div
+                    class="flex-1 rounded-2xl p-5 border transition-all duration-200"
+                    :class="activeMarkerIndex === index
+                      ? 'bg-yellow-400/5 border-yellow-400/30'
+                      : 'bg-[#1A1A14] border-[#2A2A20] hover:border-gray-700'"
+                  >
 
                     <!-- Card header -->
                     <div class="flex justify-between items-start gap-3 mb-3">
                       <div class="flex-1 min-w-0">
-                        <!-- Time range + meal badge -->
                         <div class="flex items-center gap-2 mb-1 flex-wrap">
                           <p class="text-[10px] font-black tracking-[0.15em] text-gray-500 uppercase">
                             {{ step.startHour }} — {{ step.endHour }}
@@ -156,12 +271,10 @@
                         <h3 class="text-lg font-extrabold text-white tracking-tight leading-snug">
                           {{ step.step }}
                         </h3>
-                        <!-- Category ID as a subtle tag -->
                         <p class="text-[11px] text-gray-600 mt-0.5 font-medium">{{ step.categoryId }}</p>
                       </div>
-                      <!-- Action buttons group -->
+                      <!-- Action buttons -->
                       <div class="flex gap-2 flex-shrink-0">
-                        <!-- Search places button -->
                         <button
                           @click="openPlaceSearchModal(index)"
                           class="p-2 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 hover:border-blue-500/40 text-blue-400 transition-all"
@@ -169,7 +282,6 @@
                         >
                           <UIcon name="i-heroicons-magnifying-glass" class="w-4 h-4" />
                         </button>
-                        <!-- Remove step button -->
                         <button
                           @click="openDeleteConfirm(index)"
                           class="p-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 text-red-400 transition-all"
@@ -198,7 +310,7 @@
                           class="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-gray-800"
                         >
                           <img
-                            :src="`${place.photos[0].prefix}100x100${place.photos[0].suffix}`"
+                            :src="place.photos[0].url_300 ?? `${place.photos[0].prefix}100x100${place.photos[0].suffix}`"
                             :alt="place.name"
                             class="w-full h-full object-cover"
                             loading="lazy"
@@ -217,14 +329,12 @@
                           <div class="flex items-start justify-between gap-2">
                             <h4 class="text-sm font-bold text-white leading-tight">{{ place.name }}</h4>
                             <div class="flex items-center gap-1.5 flex-shrink-0">
-                              <!-- Rating -->
                               <span
                                 v-if="place.rating"
                                 class="text-[10px] font-black text-yellow-400 bg-yellow-400/10 border border-yellow-400/20 px-1.5 py-0.5 rounded-md"
                               >
                                 ★ {{ place.rating.toFixed(1) }}
                               </span>
-                              <!-- Price -->
                               <span
                                 v-if="place.price"
                                 class="text-[10px] font-bold text-gray-400 bg-gray-800 border border-gray-700 px-1.5 py-0.5 rounded-md"
@@ -241,7 +351,6 @@
                             <UIcon name="i-heroicons-map-pin" class="w-3 h-3 flex-shrink-0" />
                             {{ place.location?.formatted_address || place.location?.address }}
                           </p>
-                          <!-- Distance -->
                           <p v-if="place.distance" class="text-[11px] text-gray-600 mt-0.5 flex items-center gap-1">
                             <UIcon name="i-heroicons-arrows-right-left" class="w-3 h-3 flex-shrink-0" />
                             {{ place.distance < 1000 ? `${place.distance}m` : `${(place.distance / 1000).toFixed(1)}km` }}
@@ -257,8 +366,7 @@
                               <UIcon name="i-heroicons-map-pin" class="w-3 h-3" />
                               Maps
                             </a>
-            
-                           <NuxtLink
+                            <NuxtLink
                               v-if="place.fsq_place_id"
                               :to="`/itinerary-details?id=${place.fsq_place_id}`"
                               class="flex items-center gap-1 text-[10px] font-semibold text-gray-300 bg-gray-800 hover:bg-gray-700 border border-gray-700 px-2.5 py-1.5 rounded-lg transition-all active:scale-95"
@@ -285,7 +393,7 @@
                   </div>
                 </div>
 
-                <!-- Divider line between steps (not after last) -->
+                <!-- Divider line between steps -->
                 <div v-if="index < itinerary.steps.length - 1" class="ml-5 h-3" />
               </template>
             </div>
@@ -325,7 +433,6 @@
         @click.self="closeDeleteConfirm"
       >
         <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 max-w-sm w-full shadow-xl">
-          <!-- Header -->
           <div class="flex items-start gap-4 mb-4">
             <div class="w-12 h-12 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center flex-shrink-0">
               <UIcon name="i-heroicons-exclamation-triangle" class="w-6 h-6 text-red-400" />
@@ -333,11 +440,11 @@
             <div>
               <h3 class="text-lg font-bold text-white">Supprimer l'étape ?</h3>
               <p class="text-gray-400 text-sm mt-1">
-                Êtes-vous sûr de vouloir supprimer l'étape <span class="font-semibold text-white">{{ stepToDeleteIndex !== null && itinerary?.steps[stepToDeleteIndex]?.step }}</span> ?
+                Êtes-vous sûr de vouloir supprimer l'étape
+                <span class="font-semibold text-white">{{ stepToDeleteIndex !== null && itinerary?.steps[stepToDeleteIndex]?.step }}</span> ?
               </p>
             </div>
           </div>
-          <!-- Action buttons -->
           <div class="flex gap-3">
             <button
               @click="closeDeleteConfirm"
@@ -365,16 +472,13 @@
         @click.self="closePlaceSearchModal"
       >
         <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 max-w-2xl w-full shadow-xl max-h-[90vh] overflow-y-auto">
-          <!-- Header -->
           <div class="flex items-start gap-4 mb-4">
             <div class="w-12 h-12 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0">
               <UIcon name="i-heroicons-magnifying-glass" class="w-6 h-6 text-blue-400" />
             </div>
             <div class="flex-1">
               <h3 class="text-lg font-bold text-white">Rechercher de nouveaux lieux</h3>
-              <p class="text-gray-400 text-sm mt-1">
-                Trouvez d'autres lieux pour cette étape
-              </p>
+              <p class="text-gray-400 text-sm mt-1">Trouvez d'autres lieux pour cette étape</p>
             </div>
           </div>
 
@@ -413,7 +517,6 @@
                   : 'border-gray-700 hover:border-gray-600'"
               >
                 <div class="flex items-start gap-2">
-                  <!-- Checkbox -->
                   <div
                     class="w-5 h-5 mt-0.5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all"
                     :class="selectedSearchPlaces.some(p => p.fsq_place_id === place.fsq_place_id)
@@ -422,7 +525,6 @@
                   >
                     <UIcon v-if="selectedSearchPlaces.some(p => p.fsq_place_id === place.fsq_place_id)" name="i-heroicons-check" class="w-3 h-3 text-white" />
                   </div>
-                  <!-- Place info -->
                   <div class="flex-1 min-w-0">
                     <h4 class="text-sm font-bold text-white">{{ place.name }}</h4>
                     <p v-if="place.description" class="text-xs text-gray-400 mt-0.5 line-clamp-1">{{ place.description }}</p>
@@ -441,7 +543,7 @@
             <p class="text-gray-400 text-sm">Aucun résultat trouvé pour "{{ placeSearchQuery }}"</p>
           </div>
 
-          <!-- Selected places summary -->
+          <!-- Selected summary -->
           <div v-if="selectedSearchPlaces.length > 0" class="mb-4 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
             <p class="text-xs font-semibold text-blue-400 mb-2">{{ selectedSearchPlaces.length }} lieu(x) sélectionné(s)</p>
             <div class="flex flex-wrap gap-2">
@@ -478,8 +580,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { useDraggable } from '@vueuse/core'
+import { computed, ref, onMounted, nextTick } from 'vue'
 import type { ItineraryModel, ItineraryStep, FQSPlace } from '~/types/itinerary'
 import { getItineraryById } from '~/services/getItineraryById'
 import { getLatestItinerary } from '~/services/getLatestItinerary'
@@ -503,6 +604,102 @@ useHead({
     { name: 'description', content: computed(() => itinerary.value?.description || '') }
   ]
 })
+
+// ─── Map ─────────────────────────────────────────────────────────
+const map = ref(null)
+const activeMarkerIndex = ref<number | null>(null)
+
+onMounted(async () => {
+  if (import.meta.client) {
+    const L = await import('leaflet')
+    delete (L.Icon.Default.prototype as any)._getIconUrl
+    L.Icon.Default.mergeOptions({
+      iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+      iconUrl:       'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+      shadowUrl:     'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+    })
+  }
+})
+
+function onMapReady() {
+  nextTick(() => {
+    setTimeout(() => {
+      (map.value as any)?.leafletObject?.invalidateSize()
+    }, 100)
+  })
+}
+
+// Meilleure place par step (même logique que getHighlightedPlaceIndex)
+const stepMarkers = computed(() => {
+  if (!itinerary.value?.steps) return []
+
+  return itinerary.value.steps
+    .map((step, index) => {
+      if (!step.places?.length) return null
+
+      const affordability = itinerary.value?.affordability
+      const bestIndex = affordability
+        ? step.places.findIndex(p => p.price === affordability)
+        : -1
+      const place = step.places[bestIndex >= 0 ? bestIndex : 0]
+
+      if (!place?.latitude || !place?.longitude) return null
+
+      return {
+        index,
+        label: index + 1,
+        coords: [place.latitude, place.longitude] as [number, number],
+        stepName: step.step,
+        placeName: place.name,
+        startHour: step.startHour,
+        endHour: step.endHour,
+        meal: step.meal ?? null,
+        rating: place.rating ?? null,
+        // Compatibilité prefix/suffix ET url_300
+        photo: place.photos?.[0] ?? null,
+      }
+    })
+    .filter(Boolean)
+})
+
+// Centroïde de tous les markers
+const mapCenter = computed((): [number, number] => {
+  if (!stepMarkers.value.length) return [48.8566, 2.3522]
+  const lats = stepMarkers.value.map(m => m!.coords[0])
+  const lngs = stepMarkers.value.map(m => m!.coords[1])
+  return [
+    lats.reduce((a, b) => a + b, 0) / lats.length,
+    lngs.reduce((a, b) => a + b, 0) / lngs.length,
+  ]
+})
+
+// Crée un marker HTML numéroté (côté client uniquement)
+function createNumberedIcon(number: number, isMeal: boolean, isActive: boolean) {
+  if (!import.meta.client) return undefined
+  const L = (window as any).L
+  if (!L) return undefined
+
+  const bg     = isActive ? '#D9B54A' : isMeal ? '#f97316' : '#1f2937'
+  const color  = isActive ? '#000'    : '#fff'
+  const border = isActive ? '#D9B54A' : isMeal ? '#f97316' : '#D9B54A'
+
+  return L.divIcon({
+    className: '',
+    html: `
+      <div style="
+        width:32px; height:32px; border-radius:50%;
+        background:${bg}; border:2.5px solid ${border};
+        display:flex; align-items:center; justify-content:center;
+        font-size:13px; font-weight:900; color:${color};
+        box-shadow:0 2px 10px rgba(0,0,0,0.5);
+        transition: transform .15s;
+      ">${number}</div>
+    `,
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+    popupAnchor: [0, -18],
+  })
+}
 
 // ─── Display Maps ───────────────────────────────────────────────
 const styleColors: Record<string, { badge: string }> = {
@@ -540,7 +737,7 @@ const totalDuration = computed(() => {
   if (!first || !last) return `${steps.length * 2}h env.`
   return `${first} – ${last}`
 })
-// ─── Affordability label mapping ────────────────────────────────
+
 const affordabilityLabels: Record<number, string> = {
   1: 'Low budget',
   2: 'Budget',
@@ -552,53 +749,16 @@ const getAffordabilityLabel = (value?: number): string => {
   if (!value) return '—'
   return affordabilityLabels[value] || '—'
 }
-// ─── Get highlighted place index ─────────────────────────────────
+
 const getHighlightedPlaceIndex = (step: ItineraryStep): number => {
   if (!step.places || step.places.length === 0) return -1
-  
   const affordability = itinerary.value?.affordability
   if (!affordability) return 0
-  
-  // Find a place with price matching the affordability
   const matchingPlaceIndex = step.places.findIndex(place => place.price === affordability)
-  
-  // If found, return that index; otherwise return 0 (first place)
   return matchingPlaceIndex >= 0 ? matchingPlaceIndex : 0
 }
 
-// ─── Social media links helper ───────────────────────────────────
-const getSocialMediaLinks = (socialMedia?: any) => {
-  if (!socialMedia) return []
-  
-  const links = []
-  if (socialMedia.facebook_id) {
-    links.push({
-      platform: 'facebook',
-      url: `https://www.facebook.com/${socialMedia.facebook_id}`,
-      icon: 'i-heroicons-variable',
-      label: 'Facebook'
-    })
-  }
-  if (socialMedia.instagram) {
-    links.push({
-      platform: 'instagram',
-      url: `https://www.instagram.com/${socialMedia.instagram}`,
-      icon: 'i-heroicons-variable',
-      label: 'Instagram'
-    })
-  }
-  if (socialMedia.twitter) {
-    links.push({
-      platform: 'twitter',
-      url: `https://www.twitter.com/${socialMedia.twitter}`,
-      icon: 'i-heroicons-variable',
-      label: 'X'
-    })
-  }
-  return links
-}
-
-// ─── State for interactive features ──────────────────────────────
+// ─── State ──────────────────────────────────────────────────────
 const isRemoving = ref(false)
 const removingStepIndex = ref<number | null>(null)
 const showDeleteConfirm = ref(false)
@@ -613,7 +773,7 @@ const placeSearchResults = ref<FQSPlace[]>([])
 const isSearchingPlaces = ref(false)
 const selectedSearchPlaces = ref<FQSPlace[]>([])
 
-// ─── Remove step function ───────────────────────────────────────
+// ─── Delete step ────────────────────────────────────────────────
 function openDeleteConfirm(stepIndex: number) {
   stepToDeleteIndex.value = stepIndex
   showDeleteConfirm.value = true
@@ -624,13 +784,13 @@ function closeDeleteConfirm() {
   stepToDeleteIndex.value = null
 }
 
+
 async function confirmDeleteStep() {
   if (stepToDeleteIndex.value === null || !itinerary.value?.id) return
   try {
     isRemoving.value = true
     removingStepIndex.value = stepToDeleteIndex.value
     await removeStep(itinerary.value.id, stepToDeleteIndex.value, itinerary.value.steps)
-    // Fix: Properly update local state to trigger reactivity
     itinerary.value = {
       ...itinerary.value,
       steps: itinerary.value.steps.filter((_, i) => i !== stepToDeleteIndex.value)
@@ -644,7 +804,7 @@ async function confirmDeleteStep() {
   }
 }
 
-// ─── Drag and Drop Functions ─────────────────────────────────────
+// ─── Drag and Drop ──────────────────────────────────────────────
 function onDragStart(index: number) {
   draggedStepIndex.value = index
 }
@@ -664,22 +824,14 @@ async function onDrop(dropIndex: number) {
     dragOverStepIndex.value = null
     return
   }
-
   try {
     isSavingOrder.value = true
     const draggedStep = itinerary.value.steps[draggedStepIndex.value]
     const newSteps = [...itinerary.value.steps]
     newSteps.splice(draggedStepIndex.value, 1)
     newSteps.splice(dropIndex, 0, draggedStep)
-    
-    // Update in Supabase
     await updateItinerary(itinerary.value.id, { steps: newSteps })
-    
-    // Update local state with smooth transition
-    itinerary.value = {
-      ...itinerary.value,
-      steps: newSteps
-    }
+    itinerary.value = { ...itinerary.value, steps: newSteps }
   } catch (err) {
     console.error('Error reordering steps:', err)
   } finally {
@@ -689,7 +841,7 @@ async function onDrop(dropIndex: number) {
   }
 }
 
-// ─── Actions ────────────────────────────────────────────────────
+// ─── Share ──────────────────────────────────────────────────────
 async function shareItinerary() {
   const url = window.location.href
   if (navigator.share) {
@@ -700,11 +852,10 @@ async function shareItinerary() {
     })
   } else {
     await navigator.clipboard.writeText(url)
-    // Optionally show a toast: "Lien copié !"
   }
 }
 
-// ─── Place Search Modal Functions ─────────────────────────────────
+// ─── Place Search Modal ──────────────────────────────────────────
 function openPlaceSearchModal(stepIndex: number) {
   placeSearchStepIndex.value = stepIndex
   placeSearchQuery.value = ''
@@ -724,23 +875,13 @@ function closePlaceSearchModal() {
 async function searchPlacesForStep() {
   if (!placeSearchQuery.value || placeSearchQuery.value.length < 2) return
   if (placeSearchStepIndex.value === null) return
-
   try {
     isSearchingPlaces.value = true
-
-    // Use the itinerary's main place as search context
     const near = itinerary.value?.place || 'Paris'
-
-    // Call backend API to search for places
     const response = await $fetch('/api/places/search', {
-      query: {
-        query: placeSearchQuery.value,
-        near: near,
-        limit: '12',
-      },
+      query: { query: placeSearchQuery.value, near, limit: '12' },
     })
-
-    placeSearchResults.value = response.results || []
+    placeSearchResults.value = (response as any).results || []
   } catch (err) {
     console.error('Error searching places:', err)
   } finally {
@@ -760,33 +901,20 @@ function togglePlaceSelection(place: FQSPlace) {
 async function confirmPlaceReplacement() {
   if (placeSearchStepIndex.value === null || !itinerary.value?.id) return
   if (selectedSearchPlaces.value.length === 0) return
-
   try {
     isSearchingPlaces.value = true
     const stepIndex = placeSearchStepIndex.value
-    
-    // Get category name from first selected place
     const firstPlace = selectedSearchPlaces.value[0]
     const categoryName = firstPlace.categories?.[0]?.name || firstPlace.name || 'Activity'
-    
     const updatedStep = {
       ...itinerary.value.steps[stepIndex],
       places: selectedSearchPlaces.value,
-      step: categoryName // Update step name to category name
+      step: categoryName
     }
-
-    // Update step in Supabase
     const newSteps = [...itinerary.value.steps]
     newSteps[stepIndex] = updatedStep
-
     await updateItinerary(itinerary.value.id, { steps: newSteps })
-
-    // Immediately update local state for reactive UI
-    itinerary.value = {
-      ...itinerary.value,
-      steps: newSteps
-    }
-
+    itinerary.value = { ...itinerary.value, steps: newSteps }
     closePlaceSearchModal()
   } catch (err) {
     console.error('Error replacing places:', err)
@@ -797,63 +925,48 @@ async function confirmPlaceReplacement() {
 </script>
 
 <style scoped>
-/* ── Step enter animation ── */
 .step-item {
   animation: stepIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
   transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @keyframes stepIn {
-  from {
-    opacity: 0;
-    transform: translateY(18px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-/* ── Drag state transition ── */
-.step-item.dragging {
-  transition: opacity 0.15s ease, transform 0.15s ease;
-}
-
-.step-item.drag-over {
-  transition: border-color 0.2s ease, padding-left 0.2s ease;
-}
-
-/* ── Page transitions ── */
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s ease;
-}
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
+.fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
+.fade-enter-from, .fade-leave-to       { opacity: 0; }
 
 .slide-up-enter-active {
   transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
 }
-.slide-up-enter-from {
-  opacity: 0;
-  transform: translateY(20px);
-}
+.slide-up-enter-from { opacity: 0; transform: translateY(20px); }
 
 .slide-up-bar-enter-active {
   transition: opacity 0.4s ease 0.2s, transform 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.2s;
 }
-.slide-up-bar-enter-from {
-  opacity: 0;
-  transform: translateY(100%);
-}
+.slide-up-bar-enter-from { opacity: 0; transform: translateY(100%); }
 
-/* ── Clamp ── */
 .line-clamp-2 {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+:deep(.leaflet-container) {
+  height: 400px !important;
+  width: 100% !important;
+  background: #1f2937;
+}
+
+:deep(.leaflet-popup-content-wrapper) {
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+
+:deep(.leaflet-popup-tip) {
+  background: white;
 }
 </style>

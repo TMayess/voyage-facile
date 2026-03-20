@@ -40,17 +40,7 @@ const providers = [
       if (error) toast.add({ title: 'Erreur Google', description: error.message, color: 'error' })
     }
   },
-  {
-    label: 'GitHub',
-    icon: 'i-simple-icons-github',
-    onClick: async () => {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'github',
-        options: { redirectTo: `${window.location.origin}/confirm` }
-      })
-      if (error) toast.add({ title: 'Erreur GitHub', description: error.message, color: 'error' })
-    }
-  }
+ 
 ]
 
 const schema = z.object({
