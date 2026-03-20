@@ -102,11 +102,21 @@
             <div class="flex flex-col gap-0">
               <template v-for="(step, index) in itinerary.steps" :key="index">
                 <div
-                  class="flex gap-4 items-start mb-3 step-item"
+                  class="flex gap-4 items-start mb-3 step-item cursor-move transition-all"
+                  :class="{
+                    'opacity-50 bg-yellow-400/5 rounded-2xl': draggedStepIndex === index,
+                    'border-l-2 border-green-400 pl-3': dragOverStepIndex === index
+                  }"
                   :style="{ animationDelay: `${index * 80}ms` }"
+                  draggable="true"
+                  @dragstart="onDragStart(index)"
+                  @dragover="onDragOver(index, $event)"
+                  @dragleave="onDragLeave"
+                  @drop="onDrop(index)"
+                  @dragend="draggedStepIndex = null; dragOverStepIndex = null"
                 >
-                  <!-- Timeline dot -->
-                  <div class="flex-shrink-0 mt-5 z-10">
+                  <!-- Timeline dot with drag handle -->
+                  <div class="flex-shrink-0 mt-5 z-10 relative group">
                     <div
                       v-if="step.meal"
                       class="w-10 h-10 rounded-full bg-orange-500/10 border-2 border-orange-500/40 flex items-center justify-center"
@@ -118,6 +128,10 @@
                       class="w-10 h-10 rounded-full bg-yellow-400/10 border-2 border-yellow-400/30 flex items-center justify-center"
                     >
                       <UIcon name="i-heroicons-map-pin" class="w-4 h-4 text-yellow-400" />
+                    </div>
+                    <!-- Drag handle indicator -->
+                    <div class="absolute inset-0 rounded-full bg-white/0 group-hover:bg-white/5 flex items-center justify-center transition-all">
+                      <UIcon name="i-heroicons-bars-3" class="w-3 h-3 text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
                   </div>
 
@@ -144,6 +158,25 @@
                         </h3>
                         <!-- Category ID as a subtle tag -->
                         <p class="text-[11px] text-gray-600 mt-0.5 font-medium">{{ step.categoryId }}</p>
+                      </div>
+                      <!-- Action buttons group -->
+                      <div class="flex gap-2 flex-shrink-0">
+                        <!-- Search places button -->
+                        <button
+                          @click="openPlaceSearchModal(index)"
+                          class="p-2 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 hover:border-blue-500/40 text-blue-400 transition-all"
+                          title="Rechercher d'autres lieux"
+                        >
+                          <UIcon name="i-heroicons-magnifying-glass" class="w-4 h-4" />
+                        </button>
+                        <!-- Remove step button -->
+                        <button
+                          @click="openDeleteConfirm(index)"
+                          class="p-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 text-red-400 transition-all"
+                          title="Supprimer cette étape"
+                        >
+                          <UIcon name="i-heroicons-trash-20-solid" class="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
 
@@ -215,7 +248,7 @@
                           </p>
 
                           <!-- Action buttons -->
-                          <div class="flex gap-2 mt-2.5">
+                          <div class="flex gap-2 mt-2.5 flex-wrap">
                             <a
                               :href="`https://maps.google.com/?q=${encodeURIComponent(place.name + ' ' + (place.location?.formatted_address || itinerary.place))}`"
                               target="_blank"
@@ -224,16 +257,7 @@
                               <UIcon name="i-heroicons-map-pin" class="w-3 h-3" />
                               Maps
                             </a>
-                            <a
-                              v-if="place.website"
-                              :href="place.website"
-                              target="_blank"
-                              class="flex items-center gap-1 text-[10px] font-semibold text-gray-300 bg-gray-800 hover:bg-gray-700 border border-gray-700 px-2.5 py-1.5 rounded-lg transition-all active:scale-95"
-                            >
-                              <UIcon name="i-heroicons-arrow-top-right-on-square" class="w-3 h-3" />
-                              Site web
-                            </a>
-
+            
                            <NuxtLink
                               v-if="place.fsq_place_id"
                               :to="`/itinerary-details?id=${place.fsq_place_id}`"
@@ -292,14 +316,174 @@
         </div>
       </div>
     </Transition>
+
+    <!-- ───── Delete Confirmation Modal ───── -->
+    <Transition name="fade">
+      <div
+        v-if="showDeleteConfirm"
+        class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+        @click.self="closeDeleteConfirm"
+      >
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 max-w-sm w-full shadow-xl">
+          <!-- Header -->
+          <div class="flex items-start gap-4 mb-4">
+            <div class="w-12 h-12 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center flex-shrink-0">
+              <UIcon name="i-heroicons-exclamation-triangle" class="w-6 h-6 text-red-400" />
+            </div>
+            <div>
+              <h3 class="text-lg font-bold text-white">Supprimer l'étape ?</h3>
+              <p class="text-gray-400 text-sm mt-1">
+                Êtes-vous sûr de vouloir supprimer l'étape <span class="font-semibold text-white">{{ stepToDeleteIndex !== null && itinerary?.steps[stepToDeleteIndex]?.step }}</span> ?
+              </p>
+            </div>
+          </div>
+          <!-- Action buttons -->
+          <div class="flex gap-3">
+            <button
+              @click="closeDeleteConfirm"
+              class="flex-1 px-4 py-2.5 rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 font-semibold text-sm transition-all"
+            >
+              Annuler
+            </button>
+            <button
+              @click="confirmDeleteStep"
+              :disabled="isRemoving"
+              class="flex-1 px-4 py-2.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-400 font-semibold text-sm transition-all disabled:opacity-50"
+            >
+              {{ isRemoving ? 'Suppression...' : 'Supprimer' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- ───── Place Search Modal ───── -->
+    <Transition name="fade">
+      <div
+        v-if="showPlaceSearchModal"
+        class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+        @click.self="closePlaceSearchModal"
+      >
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 max-w-2xl w-full shadow-xl max-h-[90vh] overflow-y-auto">
+          <!-- Header -->
+          <div class="flex items-start gap-4 mb-4">
+            <div class="w-12 h-12 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0">
+              <UIcon name="i-heroicons-magnifying-glass" class="w-6 h-6 text-blue-400" />
+            </div>
+            <div class="flex-1">
+              <h3 class="text-lg font-bold text-white">Rechercher de nouveaux lieux</h3>
+              <p class="text-gray-400 text-sm mt-1">
+                Trouvez d'autres lieux pour cette étape
+              </p>
+            </div>
+          </div>
+
+          <!-- Search input -->
+          <div class="mb-4">
+            <div class="flex gap-2">
+              <input
+                v-model="placeSearchQuery"
+                type="text"
+                placeholder="Tapez pour rechercher (ex: restaurant, musée...)"
+                class="flex-1 px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-blue-400"
+                @keyup.enter="searchPlacesForStep"
+              />
+              <button
+                @click="searchPlacesForStep"
+                :disabled="isSearchingPlaces || placeSearchQuery.length < 2"
+                class="px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <UIcon v-if="isSearchingPlaces" name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin" />
+                <span v-else>Chercher</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Results -->
+          <div v-if="placeSearchResults.length > 0" class="mb-4 max-h-64 overflow-y-auto">
+            <p class="text-xs font-semibold text-gray-400 mb-2 uppercase">{{ placeSearchResults.length }} résultats trouvés</p>
+            <div class="flex flex-col gap-2">
+              <div
+                v-for="place in placeSearchResults"
+                :key="place.fsq_place_id"
+                @click="togglePlaceSelection(place)"
+                class="p-3 rounded-lg bg-gray-800 border-2 cursor-pointer transition-all"
+                :class="selectedSearchPlaces.some(p => p.fsq_place_id === place.fsq_place_id)
+                  ? 'border-blue-400 bg-blue-500/10'
+                  : 'border-gray-700 hover:border-gray-600'"
+              >
+                <div class="flex items-start gap-2">
+                  <!-- Checkbox -->
+                  <div
+                    class="w-5 h-5 mt-0.5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all"
+                    :class="selectedSearchPlaces.some(p => p.fsq_place_id === place.fsq_place_id)
+                      ? 'bg-blue-500 border-blue-500'
+                      : 'border-gray-600'"
+                  >
+                    <UIcon v-if="selectedSearchPlaces.some(p => p.fsq_place_id === place.fsq_place_id)" name="i-heroicons-check" class="w-3 h-3 text-white" />
+                  </div>
+                  <!-- Place info -->
+                  <div class="flex-1 min-w-0">
+                    <h4 class="text-sm font-bold text-white">{{ place.name }}</h4>
+                    <p v-if="place.description" class="text-xs text-gray-400 mt-0.5 line-clamp-1">{{ place.description }}</p>
+                    <div class="flex items-center gap-2 mt-1">
+                      <span v-if="place.rating" class="text-xs font-semibold text-yellow-400">★ {{ place.rating.toFixed(1) }}</span>
+                      <span v-if="place.price" class="text-xs text-gray-400">{{ '€'.repeat(place.price) }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Empty state -->
+          <div v-else-if="placeSearchQuery && !isSearchingPlaces" class="mb-4 p-4 rounded-lg bg-gray-800/50 border border-gray-700/50 text-center">
+            <p class="text-gray-400 text-sm">Aucun résultat trouvé pour "{{ placeSearchQuery }}"</p>
+          </div>
+
+          <!-- Selected places summary -->
+          <div v-if="selectedSearchPlaces.length > 0" class="mb-4 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+            <p class="text-xs font-semibold text-blue-400 mb-2">{{ selectedSearchPlaces.length }} lieu(x) sélectionné(s)</p>
+            <div class="flex flex-wrap gap-2">
+              <div
+                v-for="place in selectedSearchPlaces"
+                :key="place.fsq_place_id"
+                class="text-xs px-2 py-1 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30"
+              >
+                {{ place.name }}
+              </div>
+            </div>
+          </div>
+
+          <!-- Action buttons -->
+          <div class="flex gap-3">
+            <button
+              @click="closePlaceSearchModal"
+              class="flex-1 px-4 py-2.5 rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 font-semibold text-sm transition-all"
+            >
+              Annuler
+            </button>
+            <button
+              @click="confirmPlaceReplacement"
+              :disabled="isSearchingPlaces || selectedSearchPlaces.length === 0"
+              class="flex-1 px-4 py-2.5 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/40 text-blue-400 font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {{ isSearchingPlaces ? 'Sauvegarde...' : 'Remplacer les lieux' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { ItineraryModel, ItineraryStep } from '~/types/itinerary'
+import { computed, ref } from 'vue'
+import { useDraggable } from '@vueuse/core'
+import type { ItineraryModel, ItineraryStep, FQSPlace } from '~/types/itinerary'
 import { getItineraryById } from '~/services/getItineraryById'
 import { getLatestItinerary } from '~/services/getLatestItinerary'
+import { removeStep, updateItinerary } from '~/services/updateItinerary'
 
 // ─── Route & Query Param ────────────────────────────────────────
 const route = useRoute()
@@ -382,6 +566,129 @@ const getHighlightedPlaceIndex = (step: ItineraryStep): number => {
   return matchingPlaceIndex >= 0 ? matchingPlaceIndex : 0
 }
 
+// ─── Social media links helper ───────────────────────────────────
+const getSocialMediaLinks = (socialMedia?: any) => {
+  if (!socialMedia) return []
+  
+  const links = []
+  if (socialMedia.facebook_id) {
+    links.push({
+      platform: 'facebook',
+      url: `https://www.facebook.com/${socialMedia.facebook_id}`,
+      icon: 'i-heroicons-variable',
+      label: 'Facebook'
+    })
+  }
+  if (socialMedia.instagram) {
+    links.push({
+      platform: 'instagram',
+      url: `https://www.instagram.com/${socialMedia.instagram}`,
+      icon: 'i-heroicons-variable',
+      label: 'Instagram'
+    })
+  }
+  if (socialMedia.twitter) {
+    links.push({
+      platform: 'twitter',
+      url: `https://www.twitter.com/${socialMedia.twitter}`,
+      icon: 'i-heroicons-variable',
+      label: 'X'
+    })
+  }
+  return links
+}
+
+// ─── State for interactive features ──────────────────────────────
+const isRemoving = ref(false)
+const removingStepIndex = ref<number | null>(null)
+const showDeleteConfirm = ref(false)
+const stepToDeleteIndex = ref<number | null>(null)
+const draggedStepIndex = ref<number | null>(null)
+const dragOverStepIndex = ref<number | null>(null)
+const isSavingOrder = ref(false)
+const showPlaceSearchModal = ref(false)
+const placeSearchStepIndex = ref<number | null>(null)
+const placeSearchQuery = ref('')
+const placeSearchResults = ref<FQSPlace[]>([])
+const isSearchingPlaces = ref(false)
+const selectedSearchPlaces = ref<FQSPlace[]>([])
+
+// ─── Remove step function ───────────────────────────────────────
+function openDeleteConfirm(stepIndex: number) {
+  stepToDeleteIndex.value = stepIndex
+  showDeleteConfirm.value = true
+}
+
+function closeDeleteConfirm() {
+  showDeleteConfirm.value = false
+  stepToDeleteIndex.value = null
+}
+
+async function confirmDeleteStep() {
+  if (stepToDeleteIndex.value === null || !itinerary.value?.id) return
+  try {
+    isRemoving.value = true
+    removingStepIndex.value = stepToDeleteIndex.value
+    await removeStep(itinerary.value.id, stepToDeleteIndex.value, itinerary.value.steps)
+    // Fix: Properly update local state to trigger reactivity
+    itinerary.value = {
+      ...itinerary.value,
+      steps: itinerary.value.steps.filter((_, i) => i !== stepToDeleteIndex.value)
+    }
+    closeDeleteConfirm()
+  } catch (err) {
+    console.error('Error removing step:', err)
+  } finally {
+    isRemoving.value = false
+    removingStepIndex.value = null
+  }
+}
+
+// ─── Drag and Drop Functions ─────────────────────────────────────
+function onDragStart(index: number) {
+  draggedStepIndex.value = index
+}
+
+function onDragOver(index: number, event: DragEvent) {
+  event.preventDefault()
+  dragOverStepIndex.value = index
+}
+
+function onDragLeave() {
+  dragOverStepIndex.value = null
+}
+
+async function onDrop(dropIndex: number) {
+  if (draggedStepIndex.value === null || draggedStepIndex.value === dropIndex || !itinerary.value?.id) {
+    draggedStepIndex.value = null
+    dragOverStepIndex.value = null
+    return
+  }
+
+  try {
+    isSavingOrder.value = true
+    const draggedStep = itinerary.value.steps[draggedStepIndex.value]
+    const newSteps = [...itinerary.value.steps]
+    newSteps.splice(draggedStepIndex.value, 1)
+    newSteps.splice(dropIndex, 0, draggedStep)
+    
+    // Update in Supabase
+    await updateItinerary(itinerary.value.id, { steps: newSteps })
+    
+    // Update local state with smooth transition
+    itinerary.value = {
+      ...itinerary.value,
+      steps: newSteps
+    }
+  } catch (err) {
+    console.error('Error reordering steps:', err)
+  } finally {
+    isSavingOrder.value = false
+    draggedStepIndex.value = null
+    dragOverStepIndex.value = null
+  }
+}
+
 // ─── Actions ────────────────────────────────────────────────────
 async function shareItinerary() {
   const url = window.location.href
@@ -396,12 +703,104 @@ async function shareItinerary() {
     // Optionally show a toast: "Lien copié !"
   }
 }
+
+// ─── Place Search Modal Functions ─────────────────────────────────
+function openPlaceSearchModal(stepIndex: number) {
+  placeSearchStepIndex.value = stepIndex
+  placeSearchQuery.value = ''
+  placeSearchResults.value = []
+  selectedSearchPlaces.value = []
+  showPlaceSearchModal.value = true
+}
+
+function closePlaceSearchModal() {
+  showPlaceSearchModal.value = false
+  placeSearchStepIndex.value = null
+  placeSearchQuery.value = ''
+  placeSearchResults.value = []
+  selectedSearchPlaces.value = []
+}
+
+async function searchPlacesForStep() {
+  if (!placeSearchQuery.value || placeSearchQuery.value.length < 2) return
+  if (placeSearchStepIndex.value === null) return
+
+  try {
+    isSearchingPlaces.value = true
+
+    // Use the itinerary's main place as search context
+    const near = itinerary.value?.place || 'Paris'
+
+    // Call backend API to search for places
+    const response = await $fetch('/api/places/search', {
+      query: {
+        query: placeSearchQuery.value,
+        near: near,
+        limit: '12',
+      },
+    })
+
+    placeSearchResults.value = response.results || []
+  } catch (err) {
+    console.error('Error searching places:', err)
+  } finally {
+    isSearchingPlaces.value = false
+  }
+}
+
+function togglePlaceSelection(place: FQSPlace) {
+  const index = selectedSearchPlaces.value.findIndex(p => p.fsq_place_id === place.fsq_place_id)
+  if (index >= 0) {
+    selectedSearchPlaces.value.splice(index, 1)
+  } else {
+    selectedSearchPlaces.value.push(place)
+  }
+}
+
+async function confirmPlaceReplacement() {
+  if (placeSearchStepIndex.value === null || !itinerary.value?.id) return
+  if (selectedSearchPlaces.value.length === 0) return
+
+  try {
+    isSearchingPlaces.value = true
+    const stepIndex = placeSearchStepIndex.value
+    
+    // Get category name from first selected place
+    const firstPlace = selectedSearchPlaces.value[0]
+    const categoryName = firstPlace.categories?.[0]?.name || firstPlace.name || 'Activity'
+    
+    const updatedStep = {
+      ...itinerary.value.steps[stepIndex],
+      places: selectedSearchPlaces.value,
+      step: categoryName // Update step name to category name
+    }
+
+    // Update step in Supabase
+    const newSteps = [...itinerary.value.steps]
+    newSteps[stepIndex] = updatedStep
+
+    await updateItinerary(itinerary.value.id, { steps: newSteps })
+
+    // Immediately update local state for reactive UI
+    itinerary.value = {
+      ...itinerary.value,
+      steps: newSteps
+    }
+
+    closePlaceSearchModal()
+  } catch (err) {
+    console.error('Error replacing places:', err)
+  } finally {
+    isSearchingPlaces.value = false
+  }
+}
 </script>
 
 <style scoped>
 /* ── Step enter animation ── */
 .step-item {
   animation: stepIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @keyframes stepIn {
@@ -413,6 +812,15 @@ async function shareItinerary() {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* ── Drag state transition ── */
+.step-item.dragging {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.step-item.drag-over {
+  transition: border-color 0.2s ease, padding-left 0.2s ease;
 }
 
 /* ── Page transitions ── */

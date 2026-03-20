@@ -1,20 +1,15 @@
-// services/searchPlaces.ts
-import type { ItineraryStep, Affordability } from "~/types/itinerary"
+const FSQ_BASE_URL = 'https://places-api.foursquare.com/places/ask'
 
-const FSQ_BASE_URL = 'https://places-api.foursquare.com/places/search'
-
-export async function searchPlaces(
-    step: ItineraryStep,
+export async function askForPlace(
     location: string,
-    minPrice: Affordability = 2,
-    limit = 4
+    query: string,
+    context: string
 ) {
     const params = new URLSearchParams({
         near: location,
-        fsq_category_ids: step.categoryId,
-        limit: limit.toString(),
-        sort: 'RATING',
-        fields: 'fsq_place_id,name,social_media,location,distance,website,description,photos,rating,price,latitude,longitude',
+        query: query,
+        context: context,
+        fields: 'categories,fsq_place_id,name,location,distance,website,description,photos,rating,price',
     })
 
     const res = await fetch(`${FSQ_BASE_URL}?${params.toString()}`, {

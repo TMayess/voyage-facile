@@ -19,14 +19,27 @@ export interface ItineraryModel {
     steps: ItineraryStep[]
 }
 
+export interface FQSCategory {
+    id: string
+    name: string
+}
+
 export type ItineraryStyle = 'Urbanist' | 'Cultural' | 'Attractions' | 'Nature'
 
 export interface FQSPlace {
     fsq_place_id: string
     distance?: number
     website?: string
+    longetude?: number
+    latitude?: number
     name: string
+    categories: FQSCategory[]
     description?: string
+    social_media?: {
+        facebook_id?: string,
+        instagram?: string,
+        twitter?: string
+    },
     photos?: {
         id: string
         created_at: string
