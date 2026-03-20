@@ -18,19 +18,14 @@ const items = computed<NavigationMenuItem[]>(() => [{
   active: route.path === '/'
 }, {
   label: 'Mon Planning',
-  to: '/planner',
+  to: '/itinerary',
   icon: 'i-lucide-map-pin-check-inside',
-  active: route.path.startsWith('/planner')
+  active: route.path.startsWith('/itinerary')
 }, {
   label: 'Mes Voyages',
-  to: '/trips',
+  to: '/my-travels',
   icon: 'i-lucide-briefcase',
-  active: route.path.startsWith('/trips')
-}, {
-  label: 'Découvrir',
-  to: '/explore',
-  icon: 'i-lucide-compass',
-  active: route.path.startsWith('/explore')
+  active: route.path.startsWith('/my-travels')
 }])
 </script>
 
@@ -56,8 +51,8 @@ const items = computed<NavigationMenuItem[]>(() => [{
       <template v-else>
         <UDropdownMenu :items="[[
           { label: user.user_metadata?.first_name || user.email, type: 'label' },
-          { label: 'Mon profil', to: '/profile', icon: 'i-lucide-user' },
-          { label: 'Mes voyages', to: '/trips', icon: 'i-lucide-briefcase' },
+          { label: 'Mon profil', to: '/profil', icon: 'i-lucide-user' },
+          { label: 'Mes voyages', to: '/my-travels', icon: 'i-lucide-briefcase' },
         ], [
           { label: 'Se déconnecter', icon: 'i-lucide-log-out', color: 'error', onSelect: logout }
         ]]">

@@ -1,9 +1,9 @@
 <template>
-  <div class="min-h-screen bg-gray-950 text-white font-sans pb-32">
+  <div class="min-h-screen  text-white font-sans pb-32">
 
     <!-- ───── Loading State ───── -->
     <Transition name="fade">
-      <div v-if="pending" class="fixed inset-0 z-50 bg-gray-950 flex flex-col items-center justify-center gap-5">
+      <div v-if="pending" class="fixed inset-0 z-50 flex flex-col items-center justify-center gap-5">
         <div class="relative w-16 h-16">
           <div class="absolute inset-0 rounded-full border-2 border-yellow-400/20" />
           <div class="absolute inset-0 rounded-full border-t-2 border-yellow-400 animate-spin" />
@@ -36,7 +36,7 @@
       <div v-if="itinerary && !pending">
 
         <!-- ───── Header ───── -->
-        <div class="bg-gradient-to-b from-gray-900 to-gray-950 border-b border-gray-800/60 px-5 pt-8 pb-6">
+        <div class="bg-gradient-to-b  px-5 pt-8 pb-6">
           <div class="max-w-2xl mx-auto">
 
             <!-- Back + Title -->
@@ -122,7 +122,7 @@
                   </div>
 
                   <!-- Card -->
-                  <div class="flex-1 rounded-2xl p-5 bg-gray-900 border border-gray-800 hover:border-gray-700 transition-all duration-200">
+                  <div class="flex-1 rounded-2xl p-5 bg-[#1A1A14] border border-[#2A2A20]  hover:border-gray-700 transition-all duration-200">
 
                     <!-- Card header -->
                     <div class="flex justify-between items-start gap-3 mb-3">
@@ -233,6 +233,15 @@
                               <UIcon name="i-heroicons-arrow-top-right-on-square" class="w-3 h-3" />
                               Site web
                             </a>
+
+                           <NuxtLink
+                              v-if="place.fsq_place_id"
+                              :to="`/itinerary-details?id=${place.fsq_place_id}`"
+                              class="flex items-center gap-1 text-[10px] font-semibold text-gray-300 bg-gray-800 hover:bg-gray-700 border border-gray-700 px-2.5 py-1.5 rounded-lg transition-all active:scale-95"
+                            >
+                              <UIcon name="i-heroicons-arrow-top-right-on-square" class="w-3 h-3" />
+                              Voir détails
+                            </NuxtLink>
                           </div>
                         </div>
                       </div>
@@ -290,6 +299,7 @@
 import { computed } from 'vue'
 import type { ItineraryModel, ItineraryStep } from '~/types/itinerary'
 import { getItineraryById } from '~/services/getItineraryById'
+import { getLatestItinerary } from '~/services/getLatestItinerary'
 
 // ─── Route & Query Param ────────────────────────────────────────
 const route = useRoute()
@@ -297,11 +307,8 @@ const id = computed(() => route.query.id as string)
 
 // ─── Fetch ──────────────────────────────────────────────────────
 const { data: itinerary, pending, error } = await useAsyncData<ItineraryModel>(
-  () => `itinerary-${id.value}`,
-  () => {
-    if (!id.value) throw new Error('Aucun identifiant fourni')
-    return getItineraryById(id.value)
-  },
+  () => `itinerary-${id.value || 'latest'}`,
+  () => id.value ? getItineraryById(id.value) : getLatestItinerary(),
   { watch: [id] }
 )
 
