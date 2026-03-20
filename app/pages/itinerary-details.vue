@@ -1,12 +1,12 @@
 <script setup>
-import 'leaflet/dist/leaflet.css'
-import { ref, computed, watch } from "vue"
+import { ref, computed, watch, onMounted, nextTick } from "vue"
 import { useRoute } from "vue-router"
 
 const route = useRoute()
 const placeId = route.query.id
 
 const map = ref(null)
+const mapReady = ref(false)
 
 const { data: place, pending, error } = await useFetch('/api/place-details', {
   query: { id: placeId },
@@ -14,51 +14,77 @@ const { data: place, pending, error } = await useFetch('/api/place-details', {
 
 const wikiImage = ref(null)
 
+// ─── Fix icônes Leaflet ──────────────────────────────────────────
+onMounted(async () => {
+  if (import.meta.client) {
+    const L = await import('leaflet')
+    delete L.Icon.Default.prototype._getIconUrl
+    L.Icon.Default.mergeOptions({
+      iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+      iconUrl:       'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+      shadowUrl:     'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+    })
+  }
+})
+
+// ─── Force invalidateSize quand la map est prête ─────────────────
+function onMapReady() {
+  mapReady.value = true
+  nextTick(() => {
+    setTimeout(() => {
+      map.value?.leafletObject?.invalidateSize()
+    }, 100)
+  })
+}
+
 watch(place, async (newData) => {
   if (!newData) return
+
+  // Re-invalide la map quand les données arrivent
+  await nextTick()
+  setTimeout(() => {
+    map.value?.leafletObject?.invalidateSize()
+  }, 300)
 
   try {
     const cleanName = newData.name.split('(')[0].trim()
     const title = encodeURIComponent(cleanName)
-
     const url = `https://en.wikipedia.org/w/api.php?action=query&titles=${title}&prop=pageimages&format=json&pithumbsize=1000&origin=*&redirects=1`
 
     const res = await fetch(url)
     const json = await res.json()
-
     const pages = json.query?.pages
+
     if (pages) {
       const firstPage = Object.values(pages)[0]
-      if (firstPage.thumbnail) {
-        wikiImage.value = firstPage.thumbnail.source
-      } else {
-        wikiImage.value = "https://images.unsplash.com/photo-1499856871958-5b9627545d1a?q=80&w=1000"
-      }
+      wikiImage.value = firstPage.thumbnail?.source
+        ?? "https://images.unsplash.com/photo-1499856871958-5b9627545d1a?q=80&w=1000"
     }
-
-    setTimeout(() => {
-      if (map.value?.leafletObject) {
-        map.value.leafletObject.invalidateSize()
-      }
-    }, 300)
-
   } catch (err) {
     console.error("Erreur image Wikipedia:", err)
     wikiImage.value = "https://images.unsplash.com/photo-1499856871958-5b9627545d1a?q=80&w=1000"
   }
 })
 
-const googleMapsUrl = computed(() => {
-  if (!place.value?.geocodes?.main) return '#'
-  const { latitude, longitude } = place.value.geocodes.main
-  return `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`
-})
-
+// ─── Coordonnées ─────────────────────────────────────────────────
 const monumentCoords = computed(() => {
-  if (place.value?.geocodes?.main) {
-    return [place.value.geocodes.main.latitude, place.value.geocodes.main.longitude]
+  if (place.value?.latitude && place.value?.longitude) {
+    return [place.value.latitude, place.value.longitude]
   }
   return [47.21322, -1.559482]
+})
+
+const googleMapsUrl = computed(() => {
+  if (place.value?.latitude && place.value?.longitude) {
+    return `https://www.google.com/maps/search/?api=1&query=${place.value.latitude},${place.value.longitude}`
+  }
+  if (place.value?.name) {
+    const query = encodeURIComponent(
+      `${place.value.name} ${place.value.location?.formatted_address ?? ''}`
+    )
+    return `https://www.google.com/maps/search/?api=1&query=${query}`
+  }
+  return '#'
 })
 </script>
 
@@ -158,6 +184,7 @@ const monumentCoords = computed(() => {
 
           <aside class="space-y-6">
             <div class="sticky top-8 space-y-4">
+
               <UCard class="bg-[#D9B54A] border-none">
                 <div class="text-black space-y-4">
                   <div class="flex items-center gap-3">
@@ -167,27 +194,29 @@ const monumentCoords = computed(() => {
                       <p class="font-bold">{{ new Date(place.date_refreshed).toLocaleDateString('fr-FR') }}</p>
                     </div>
                   </div>
-                  <UButton
-                    block
-                    color="white"
-                    size="xl"
-                    label="Itinéraire Google Maps"
-                    icon="i-heroicons-map-pin"
-                    class="font-black"
-                    :to="googleMapsUrl"
+                  <!-- ✅ Lien Google Maps corrigé — ouvre dans un nouvel onglet -->
+                  <a
+                    :href="googleMapsUrl"
                     target="_blank"
-                  />
+                    rel="noopener noreferrer"
+                    class="flex items-center justify-center gap-2 w-full bg-black/20 hover:bg-black/30 text-black font-black text-sm py-3 px-4 rounded-xl transition-all"
+                  >
+                    <UIcon name="i-heroicons-map-pin" class="w-4 h-4" />
+                    Itinéraire Google Maps
+                  </a>
                 </div>
               </UCard>
 
-              <UCard :ui="{ body: { padding: 'p-0' } }" class="overflow-hidden border-white/10 bg-white/5 h-[300px]">
+              <!-- ✅ Map Leaflet avec hauteur fixe et @ready -->
+              <div class="rounded-2xl overflow-hidden border border-white/10 bg-white/5" style="height: 300px;">
                 <ClientOnly>
                   <LMap
                     ref="map"
                     :zoom="15"
                     :center="monumentCoords"
                     :use-global-leaflet="false"
-                    style="height: 100%; width: 100%"
+                    style="height: 300px; width: 100%; z-index: 0;"
+                    @ready="onMapReady"
                   >
                     <LTileLayer
                       url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -197,13 +226,17 @@ const monumentCoords = computed(() => {
                     />
                     <LMarker :lat-lng="monumentCoords" />
                   </LMap>
+
                   <template #fallback>
-                    <div class="flex items-center justify-center h-full bg-white/5">
-                      <UIcon name="i-heroicons-arrow-path" class="animate-spin text-2xl text-gray-500" />
+                    <div class="flex items-center justify-center bg-white/5" style="height: 300px;">
+                      <div class="flex flex-col items-center gap-3">
+                        <UIcon name="i-heroicons-arrow-path" class="animate-spin text-2xl text-gray-500" />
+                        <p class="text-xs text-gray-600">Chargement de la carte…</p>
+                      </div>
                     </div>
                   </template>
                 </ClientOnly>
-              </UCard>
+              </div>
 
               <div class="p-6 rounded-3xl border border-white/10 bg-white/5 text-sm text-gray-400 leading-relaxed italic">
                 "Ce monument est classé dans la catégorie monument historique. Les données sont fournies par Foursquare API v3."
@@ -232,5 +265,11 @@ header::after {
   inset: 0;
   box-shadow: inset 0 0 100px rgba(0,0,0,0.5);
   pointer-events: none;
+}
+
+:deep(.leaflet-container) {
+  height: 300px !important;
+  width: 100% !important;
+  background: #1f2937;
 }
 </style>

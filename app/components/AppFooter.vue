@@ -7,17 +7,13 @@ const items = computed(() => [{
   active: route.path === '/'
 }, {
   label: 'Mon Planning',
-  to: '/planner',
-  active: route.path.startsWith('/planner')
+   to: '/itinerary',
+  active: route.path.startsWith('/itinerary')
 }, {
   label: 'Mes Voyages',
-  to: '/trips',
-  active: route.path.startsWith('/trips')
-}, {
-  label: 'Découvrir',
-  to: '/explore',
-  active: route.path.startsWith('/explore')
-}])
+  to: '/my-travels',
+  active: route.path.startsWith('/my-travels')
+},])
 
 const socials = [
   { icon: 'i-simple-icons-x', label: 'X', to: 'https://x.com' },

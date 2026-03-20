@@ -17,7 +17,7 @@ supabase: {
   redirectOptions: {
     login: '/login',
     callback: '/confirm',
-    exclude: ['/', '/register','/forgot-password', '/reset-password', '/itinerary', '/itinerary/**', '/itinerary-details', '/itinerary-details/**',],
+    exclude: ['/', '/register','/forgot-password', '/reset-password', '/itinerary-details', '/itinerary-details/**',],
   }
 },
 
