@@ -275,6 +275,25 @@
                       </div>
                       <!-- Action buttons -->
                       <div class="flex gap-2 flex-shrink-0">
+                        <!-- Move up button -->
+                        <button
+                          @click="moveStepUp(index)"
+                          :disabled="index === 0"
+                          class="p-2 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 hover:border-purple-500/40 text-purple-400 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                          title="Déplacer vers le haut"
+                        >
+                          <UIcon name="i-heroicons-arrow-up" class="w-4 h-4" />
+                        </button>
+                        <!-- Move down button -->
+                        <button
+                          @click="moveStepDown(index)"
+                          :disabled="index === itinerary.steps.length - 1"
+                          class="p-2 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 hover:border-purple-500/40 text-purple-400 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                          title="Déplacer vers le bas"
+                        >
+                          <UIcon name="i-heroicons-arrow-down" class="w-4 h-4" />
+                        </button>
+                        <!-- Search places button -->
                         <button
                           @click="openPlaceSearchModal(index)"
                           class="p-2 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 hover:border-blue-500/40 text-blue-400 transition-all"
@@ -407,13 +426,7 @@
       <div v-if="itinerary && !pending" class="fixed bottom-0 left-0 right-0 z-50">
         <div class="bg-gradient-to-t from-gray-950 via-gray-950/97 to-transparent pt-6 pb-5 px-5">
           <div class="max-w-2xl mx-auto flex gap-3">
-            <button
-              class="flex-1 flex items-center justify-center gap-2 bg-yellow-400 hover:bg-yellow-300 active:scale-[0.98] text-black font-black text-sm py-3.5 rounded-2xl transition-all"
-              @click="shareItinerary"
-            >
-              <UIcon name="i-heroicons-share" class="w-4 h-4" />
-              Partager
-            </button>
+          
             <NuxtLink
               to="/"
               class="flex items-center justify-center gap-2 border border-gray-700 hover:border-gray-500 hover:bg-gray-800 active:scale-[0.98] text-gray-300 font-semibold text-sm px-5 py-3.5 rounded-2xl transition-all"
@@ -629,7 +642,7 @@ function onMapReady() {
   })
 }
 
-// Meilleure place par step (même logique que getHighlightedPlaceIndex)
+// Meilleure place par step
 const stepMarkers = computed(() => {
   if (!itinerary.value?.steps) return []
 
@@ -655,7 +668,6 @@ const stepMarkers = computed(() => {
         endHour: step.endHour,
         meal: step.meal ?? null,
         rating: place.rating ?? null,
-        // Compatibilité prefix/suffix ET url_300
         photo: place.photos?.[0] ?? null,
       }
     })
@@ -673,7 +685,6 @@ const mapCenter = computed((): [number, number] => {
   ]
 })
 
-// Crée un marker HTML numéroté (côté client uniquement)
 function createNumberedIcon(number: number, isMeal: boolean, isActive: boolean) {
   if (!import.meta.client) return undefined
   const L = (window as any).L
@@ -784,7 +795,6 @@ function closeDeleteConfirm() {
   stepToDeleteIndex.value = null
 }
 
-
 async function confirmDeleteStep() {
   if (stepToDeleteIndex.value === null || !itinerary.value?.id) return
   try {
@@ -838,6 +848,35 @@ async function onDrop(dropIndex: number) {
     isSavingOrder.value = false
     draggedStepIndex.value = null
     dragOverStepIndex.value = null
+  }
+}
+
+// ─── Move Step (flèches ↑↓) ─────────────────────────────────────
+async function moveStepUp(index: number) {
+  if (index === 0 || !itinerary.value?.id) return
+  try {
+    const newSteps: ItineraryStep[] = [...itinerary.value.steps]
+    ;[newSteps[index - 1], newSteps[index]] = [newSteps[index], newSteps[index - 1]]
+    ;[newSteps[index - 1].startHour, newSteps[index].startHour] = [newSteps[index].startHour, newSteps[index - 1].startHour]
+    ;[newSteps[index - 1].endHour, newSteps[index].endHour] = [newSteps[index].endHour, newSteps[index - 1].endHour]
+    await updateItinerary(itinerary.value.id, { steps: newSteps })
+    itinerary.value = { ...itinerary.value, steps: newSteps }
+  } catch (err) {
+    console.error('Error moving step up:', err)
+  }
+}
+
+async function moveStepDown(index: number) {
+  if (index === itinerary.value!.steps.length - 1 || !itinerary.value?.id) return
+  try {
+    const newSteps: ItineraryStep[] = [...itinerary.value.steps]
+    ;[newSteps[index], newSteps[index + 1]] = [newSteps[index + 1], newSteps[index]]
+    ;[newSteps[index].startHour, newSteps[index + 1].startHour] = [newSteps[index + 1].startHour, newSteps[index].startHour]
+    ;[newSteps[index].endHour, newSteps[index + 1].endHour] = [newSteps[index + 1].endHour, newSteps[index].endHour]
+    await updateItinerary(itinerary.value.id, { steps: newSteps })
+    itinerary.value = { ...itinerary.value, steps: newSteps }
+  } catch (err) {
+    console.error('Error moving step down:', err)
   }
 }
 

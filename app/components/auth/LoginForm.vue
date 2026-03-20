@@ -28,20 +28,6 @@ const fields: AuthFormField[] = [
   }
 ]
 
-const providers = [
-  {
-    label: 'Google',
-    icon: 'i-simple-icons-google',
-    onClick: async () => {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: { redirectTo: `${window.location.origin}/confirm` }
-      })
-      if (error) toast.add({ title: 'Erreur Google', description: error.message, color: 'error' })
-    }
-  },
- 
-]
 
 const schema = z.object({
   email: z.string().email('Email invalide'),
@@ -74,7 +60,6 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
         description="Enter your credentials to access your account."
         icon="i-lucide-user"
         :fields="fields"
-        :providers="providers"
         @submit="onSubmit"
       >
         <template #footer>
