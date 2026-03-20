@@ -1,4 +1,3 @@
-
 export interface ItineraryStep {
   step: string
   categoryId: string
