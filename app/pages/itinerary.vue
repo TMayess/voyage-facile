@@ -1,309 +1,444 @@
 <template>
-  <div class="min-h-screen bg-gray-950 text-white font-sans pb-28">
+  <div class="min-h-screen bg-gray-950 text-white font-sans pb-32">
 
-    <!-- ───── Header ───── -->
-    <div class="bg-gradient-to-b from-gray-900 to-gray-950 border-b border-gray-800/60 px-5 pt-8 pb-6">
-      <div class="max-w-2xl mx-auto">
-
-        <!-- Back + Title -->
-        <div class="flex items-start gap-4 mb-5">
-          <NuxtLink
-            to="/"
-            class="mt-1 w-10 h-10 flex-shrink-0 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center text-gray-400 hover:text-yellow-400 hover:border-yellow-400/50 transition-all"
-          >
-            <UIcon name="i-heroicons-arrow-left" class="w-5 h-5" />
-          </NuxtLink>
-
-          <div>
-            <h1 class="text-2xl sm:text-3xl font-black tracking-tight text-white leading-tight">
-              {{ cityName }} Express
-              <span class="text-yellow-400 mx-1">|</span>
-              Itinéraire Dynamique
-            </h1>
-            <p class="text-gray-500 text-sm mt-1">
-              Gérez votre voyage de luxe avec l'assistance IA personnalisée.
-            </p>
+    <!-- ───── Loading State ───── -->
+    <Transition name="fade">
+      <div v-if="pending" class="fixed inset-0 z-50 bg-gray-950 flex flex-col items-center justify-center gap-5">
+        <div class="relative w-16 h-16">
+          <div class="absolute inset-0 rounded-full border-2 border-yellow-400/20" />
+          <div class="absolute inset-0 rounded-full border-t-2 border-yellow-400 animate-spin" />
+          <div class="absolute inset-0 flex items-center justify-center">
+            <UIcon name="i-heroicons-map-pin" class="w-6 h-6 text-yellow-400" />
           </div>
         </div>
-
-        <!-- Stats bar -->
-        <div class="flex flex-wrap gap-4">
-          <div class="flex items-center gap-1.5 text-sm text-gray-400">
-            <UIcon name="i-heroicons-map-pin" class="w-4 h-4 text-yellow-400" />
-            <span>{{ confirmedSteps.length }} étape{{ confirmedSteps.length > 1 ? 's' : '' }}</span>
-          </div>
-          <div class="flex items-center gap-1.5 text-sm text-gray-400">
-            <UIcon name="i-heroicons-building-storefront" class="w-4 h-4 text-orange-400" />
-            <span>{{ restaurantSteps.length }} restaurant{{ restaurantSteps.length > 1 ? 's' : '' }}</span>
-          </div>
-          <div class="flex items-center gap-1.5 text-sm text-gray-400">
-            <UIcon name="i-heroicons-clock" class="w-4 h-4 text-yellow-400" />
-            <span>~{{ confirmedSteps.length * 2 }}h de visite</span>
-          </div>
-          <div class="flex items-center gap-1.5 text-sm text-gray-400">
-            <UIcon name="i-heroicons-banknotes" class="w-4 h-4 text-yellow-400" />
-            <span>{{ budgetLabel }}</span>
-          </div>
-        </div>
-
+        <p class="text-gray-400 text-sm font-medium tracking-wide animate-pulse">Chargement de l'itinéraire…</p>
       </div>
-    </div>
+    </Transition>
 
-    <!-- ───── Timeline ───── -->
-    <div class="max-w-2xl mx-auto px-5 pt-8">
-      <div class="relative">
+    <!-- ───── Error State ───── -->
+    <Transition name="fade">
+      <div v-if="error && !pending" class="min-h-screen flex flex-col items-center justify-center gap-6 px-6">
+        <div class="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+          <UIcon name="i-heroicons-exclamation-triangle" class="w-7 h-7 text-red-400" />
+        </div>
+        <div class="text-center">
+          <h2 class="text-xl font-bold text-white mb-2">Itinéraire introuvable</h2>
+          <p class="text-gray-500 text-sm max-w-xs">{{ error.message || "Impossible de charger cet itinéraire. Veuillez vérifier le lien." }}</p>
+        </div>
+        <NuxtLink to="/" class="px-6 py-3 bg-yellow-400 hover:bg-yellow-300 text-black font-bold text-sm rounded-xl transition-all">
+          Retour à l'accueil
+        </NuxtLink>
+      </div>
+    </Transition>
 
-        <!-- Vertical line -->
-        <div class="absolute left-5 top-0 bottom-0 w-0.5 bg-gradient-to-b from-yellow-400/60 via-gray-700/40 to-transparent pointer-events-none" />
+    <!-- ───── Main Content ───── -->
+    <Transition name="slide-up">
+      <div v-if="itinerary && !pending">
 
-        <!-- Steps -->
-        <div class="flex flex-col gap-0">
-          <template v-for="(step, index) in allSteps" :key="step.id">
+        <!-- ───── Header ───── -->
+        <div class="bg-gradient-to-b from-gray-900 to-gray-950 border-b border-gray-800/60 px-5 pt-8 pb-6">
+          <div class="max-w-2xl mx-auto">
 
-            <ItineraryStep
-              :step="step"
-              class="mb-3"
-              @remove="removeStep"
-              @confirm="confirmStep"
-              @replace="replaceStep"
-              @details="openDetails"
-            />
-
-            <!-- Add step button between confirmed stops -->
-            <div
-              v-if="step.status === 'confirmed'"
-              class="flex justify-center py-1 pl-14 mb-3"
-            >
-              <button
-                class="flex items-center gap-1.5 border border-dashed border-gray-700 hover:border-yellow-400/50 text-gray-600 hover:text-yellow-400 text-xs font-semibold px-4 py-2 rounded-full transition-all"
-                @click="openAddStep(index)"
+            <!-- Back + Title -->
+            <div class="flex items-start gap-4 mb-5">
+              <NuxtLink
+                to="/"
+                class="mt-1 w-10 h-10 flex-shrink-0 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center text-gray-400 hover:text-yellow-400 hover:border-yellow-400/50 transition-all"
               >
-                <UIcon name="i-heroicons-plus" class="w-3.5 h-3.5" />
-                Ajouter une étape
-              </button>
+                <UIcon name="i-heroicons-arrow-left" class="w-5 h-5" />
+              </NuxtLink>
+              <div class="flex-1 min-w-0">
+                <!-- Style badge -->
+                <div class="flex items-center gap-2 mb-2">
+                  <span
+                    class="inline-flex items-center gap-1.5 text-[10px] font-black tracking-[0.15em] uppercase px-2.5 py-0.5 rounded-full border"
+                    :class="styleColors[itinerary.category]?.badge || 'bg-gray-800 border-gray-700 text-gray-400'"
+                  >
+                    <UIcon :name="styleIcons[itinerary.category] || 'i-heroicons-map'" class="w-3 h-3" />
+                    {{ itinerary.category }}
+                  </span>
+                </div>
+                <h1 class="text-2xl sm:text-3xl font-black tracking-tight text-white leading-tight">
+                  {{ itinerary.name }}
+                </h1>
+                <p class="text-gray-400 text-sm mt-1.5 leading-relaxed">{{ itinerary.description }}</p>
+              </div>
             </div>
 
-          </template>
-
-          <!-- Final add -->
-          <div class="flex justify-center py-2 pl-14 mt-1">
-            <button
-              class="flex items-center gap-1.5 border border-dashed border-gray-700 hover:border-yellow-400/50 text-gray-600 hover:text-yellow-400 text-xs font-semibold px-4 py-2 rounded-full transition-all"
-              @click="openAddStep(allSteps.length)"
-            >
-              <UIcon name="i-heroicons-plus" class="w-3.5 h-3.5" />
-              Ajouter une étape
-            </button>
+            <!-- Stats bar -->
+            <div class="flex flex-wrap gap-x-5 gap-y-2">
+              <div class="flex items-center gap-1.5 text-sm text-gray-400">
+                <UIcon name="i-heroicons-map-pin" class="w-4 h-4 text-yellow-400" />
+                <span>{{ itinerary.place }}</span>
+              </div>
+              <div class="flex items-center gap-1.5 text-sm text-gray-400">
+                <UIcon name="i-heroicons-queue-list" class="w-4 h-4 text-yellow-400" />
+                <span>{{ itinerary.steps.length }} étape{{ itinerary.steps.length > 1 ? 's' : '' }}</span>
+              </div>
+              <div class="flex items-center gap-1.5 text-sm text-gray-400">
+                <UIcon name="i-heroicons-clock" class="w-4 h-4 text-yellow-400" />
+                <span>{{ totalDuration }}</span>
+              </div>
+              <div v-if="mealCount > 0" class="flex items-center gap-1.5 text-sm text-gray-400">
+                <UIcon name="i-heroicons-building-storefront" class="w-4 h-4 text-orange-400" />
+                <span>{{ mealCount }} repas</span>
+              </div>
+              <div class="flex items-center gap-1.5 text-sm text-gray-400">
+                <UIcon name="i-heroicons-currency-euro" class="w-4 h-4 text-green-400" />
+                <span>{{ getAffordabilityLabel(itinerary.affordability) }}</span>
+              </div>
+            </div>
           </div>
         </div>
 
+        <!-- ───── Timeline ───── -->
+        <div class="max-w-2xl mx-auto px-5 pt-8">
+          <div class="relative">
+
+            <!-- Vertical connector line -->
+            <div class="absolute left-5 top-0 bottom-0 w-0.5 bg-gradient-to-b from-yellow-400/50 via-gray-700/30 to-transparent pointer-events-none" />
+
+            <!-- Steps -->
+            <div class="flex flex-col gap-0">
+              <template v-for="(step, index) in itinerary.steps" :key="index">
+                <div
+                  class="flex gap-4 items-start mb-3 step-item"
+                  :style="{ animationDelay: `${index * 80}ms` }"
+                >
+                  <!-- Timeline dot -->
+                  <div class="flex-shrink-0 mt-5 z-10">
+                    <div
+                      v-if="step.meal"
+                      class="w-10 h-10 rounded-full bg-orange-500/10 border-2 border-orange-500/40 flex items-center justify-center"
+                    >
+                      <UIcon :name="mealIcons[step.meal] || 'i-heroicons-building-storefront'" class="w-4 h-4 text-orange-400" />
+                    </div>
+                    <div
+                      v-else
+                      class="w-10 h-10 rounded-full bg-yellow-400/10 border-2 border-yellow-400/30 flex items-center justify-center"
+                    >
+                      <UIcon name="i-heroicons-map-pin" class="w-4 h-4 text-yellow-400" />
+                    </div>
+                  </div>
+
+                  <!-- Card -->
+                  <div class="flex-1 rounded-2xl p-5 bg-gray-900 border border-gray-800 hover:border-gray-700 transition-all duration-200">
+
+                    <!-- Card header -->
+                    <div class="flex justify-between items-start gap-3 mb-3">
+                      <div class="flex-1 min-w-0">
+                        <!-- Time range + meal badge -->
+                        <div class="flex items-center gap-2 mb-1 flex-wrap">
+                          <p class="text-[10px] font-black tracking-[0.15em] text-gray-500 uppercase">
+                            {{ step.startHour }} — {{ step.endHour }}
+                          </p>
+                          <span
+                            v-if="step.meal"
+                            class="text-[9px] font-bold tracking-wide bg-orange-500/10 text-orange-400 border border-orange-500/20 px-2 py-0.5 rounded-full uppercase"
+                          >
+                            {{ step.meal }}
+                          </span>
+                        </div>
+                        <h3 class="text-lg font-extrabold text-white tracking-tight leading-snug">
+                          {{ step.step }}
+                        </h3>
+                        <!-- Category ID as a subtle tag -->
+                        <p class="text-[11px] text-gray-600 mt-0.5 font-medium">{{ step.categoryId }}</p>
+                      </div>
+                    </div>
+
+                    <!-- Places -->
+                    <div v-if="step.places && step.places.length > 0" class="flex flex-col gap-2.5 mt-3">
+                      <div
+                        v-for="(place, placeIndex) in step.places"
+                        :key="place.fsq_place_id"
+                        :class="[
+                          'rounded-xl flex gap-3 items-start transition-all',
+                          placeIndex === getHighlightedPlaceIndex(step)
+                            ? 'bg-gradient-to-br from-yellow-400/10 via-yellow-500/5 to-gray-950/70 border-2 border-yellow-400/40 p-4 scale-[1.02] shadow-lg shadow-yellow-400/10'
+                            : 'bg-gray-950/70 border border-gray-800/80 p-3.5'
+                        ]"
+                      >
+                        <!-- Place photo -->
+                        <div
+                          v-if="place.photos && place.photos.length > 0"
+                          class="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-gray-800"
+                        >
+                          <img
+                            :src="`${place.photos[0].prefix}100x100${place.photos[0].suffix}`"
+                            :alt="place.name"
+                            class="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                        </div>
+                        <!-- Placeholder icon -->
+                        <div
+                          v-else
+                          class="w-16 h-16 flex-shrink-0 rounded-lg bg-gray-800/60 border border-gray-700/50 flex items-center justify-center"
+                        >
+                          <UIcon name="i-heroicons-building-storefront" class="w-6 h-6 text-gray-600" />
+                        </div>
+
+                        <!-- Place info -->
+                        <div class="flex-1 min-w-0">
+                          <div class="flex items-start justify-between gap-2">
+                            <h4 class="text-sm font-bold text-white leading-tight">{{ place.name }}</h4>
+                            <div class="flex items-center gap-1.5 flex-shrink-0">
+                              <!-- Rating -->
+                              <span
+                                v-if="place.rating"
+                                class="text-[10px] font-black text-yellow-400 bg-yellow-400/10 border border-yellow-400/20 px-1.5 py-0.5 rounded-md"
+                              >
+                                ★ {{ place.rating.toFixed(1) }}
+                              </span>
+                              <!-- Price -->
+                              <span
+                                v-if="place.price"
+                                class="text-[10px] font-bold text-gray-400 bg-gray-800 border border-gray-700 px-1.5 py-0.5 rounded-md"
+                              >
+                                {{ '€'.repeat(place.price) }}
+                              </span>
+                            </div>
+                          </div>
+                          <p v-if="place.description" class="text-xs text-gray-500 mt-0.5 leading-relaxed line-clamp-2">{{ place.description }}</p>
+                          <p
+                            v-if="place.location?.formatted_address || place.location?.address"
+                            class="text-[11px] text-gray-600 mt-1 flex items-center gap-1"
+                          >
+                            <UIcon name="i-heroicons-map-pin" class="w-3 h-3 flex-shrink-0" />
+                            {{ place.location?.formatted_address || place.location?.address }}
+                          </p>
+                          <!-- Distance -->
+                          <p v-if="place.distance" class="text-[11px] text-gray-600 mt-0.5 flex items-center gap-1">
+                            <UIcon name="i-heroicons-arrows-right-left" class="w-3 h-3 flex-shrink-0" />
+                            {{ place.distance < 1000 ? `${place.distance}m` : `${(place.distance / 1000).toFixed(1)}km` }}
+                          </p>
+
+                          <!-- Action buttons -->
+                          <div class="flex gap-2 mt-2.5">
+                            <a
+                              :href="`https://maps.google.com/?q=${encodeURIComponent(place.name + ' ' + (place.location?.formatted_address || itinerary.place))}`"
+                              target="_blank"
+                              class="flex items-center gap-1 text-[10px] font-bold text-black bg-yellow-400 hover:bg-yellow-300 px-2.5 py-1.5 rounded-lg transition-all active:scale-95"
+                            >
+                              <UIcon name="i-heroicons-map-pin" class="w-3 h-3" />
+                              Maps
+                            </a>
+                            <a
+                              v-if="place.website"
+                              :href="place.website"
+                              target="_blank"
+                              class="flex items-center gap-1 text-[10px] font-semibold text-gray-300 bg-gray-800 hover:bg-gray-700 border border-gray-700 px-2.5 py-1.5 rounded-lg transition-all active:scale-95"
+                            >
+                              <UIcon name="i-heroicons-arrow-top-right-on-square" class="w-3 h-3" />
+                              Site web
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- No places fallback -->
+                    <div v-else class="mt-2 flex gap-2">
+                      <a
+                        :href="`https://maps.google.com/?q=${encodeURIComponent(step.step + ' ' + itinerary.place)}`"
+                        target="_blank"
+                        class="flex items-center gap-1.5 text-xs font-bold text-black bg-yellow-400 hover:bg-yellow-300 px-3.5 py-2 rounded-xl transition-all active:scale-95"
+                      >
+                        <UIcon name="i-heroicons-map-pin" class="w-3.5 h-3.5" />
+                        Google Maps
+                      </a>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Divider line between steps (not after last) -->
+                <div v-if="index < itinerary.steps.length - 1" class="ml-5 h-3" />
+              </template>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
+    </Transition>
 
     <!-- ───── Fixed bottom bar ───── -->
-    <div class="fixed bottom-0 left-0 right-0 z-50">
-      <div class="bg-gradient-to-t from-gray-950 via-gray-950/95 to-transparent pt-6 pb-5 px-5">
-        <div class="max-w-2xl mx-auto flex gap-3">
-          <button
-            class="flex-1 flex items-center justify-center gap-2 bg-yellow-400 hover:bg-yellow-300 active:scale-[0.98] text-black font-black text-sm py-3.5 rounded-2xl transition-all disabled:opacity-60"
-            :disabled="loadingSuggestion"
-            @click="getSuggestions"
-          >
-            <UIcon
-              :name="loadingSuggestion ? 'i-heroicons-arrow-path' : 'i-heroicons-sparkles'"
-              class="w-4 h-4"
-              :class="{ 'animate-spin': loadingSuggestion }"
-            />
-            {{ loadingSuggestion ? 'Génération…' : 'Obtenir suggestions IA' }}
-          </button>
-          <button
-            class="flex items-center justify-center gap-2 border border-gray-700 hover:border-gray-500 hover:bg-gray-800 active:scale-[0.98] text-gray-300 font-semibold text-sm px-5 py-3.5 rounded-2xl transition-all"
-          >
-            <UIcon name="i-heroicons-share" class="w-4 h-4" />
-            Partager
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ───── Details Modal ───── -->
-    <UModal v-model="isDetailsOpen">
-      <div v-if="selectedStep" class="bg-gray-900 rounded-2xl overflow-hidden">
-        <!-- Modal header -->
-        <div class="flex items-center justify-between px-5 py-4 border-b border-gray-800">
-          <h3 class="text-lg font-bold text-white">{{ selectedStep.name }}</h3>
-          <button
-            class="w-8 h-8 rounded-lg flex items-center justify-center text-gray-500 hover:text-white hover:bg-gray-800 transition-colors"
-            @click="isDetailsOpen = false"
-          >
-            <UIcon name="i-heroicons-x-mark" class="w-4 h-4" />
-          </button>
-        </div>
-
-        <!-- Modal body -->
-        <div class="p-5 flex flex-col gap-4">
-          <div v-if="selectedStep.mapUrl" class="w-full h-36 rounded-xl overflow-hidden bg-gray-800">
-            <img :src="selectedStep.mapUrl" alt="Carte" class="w-full h-full object-cover" />
-          </div>
-
-          <p class="text-sm text-gray-400 italic leading-relaxed">{{ selectedStep.description }}</p>
-
-          <div class="flex flex-col gap-2.5">
-            <div class="flex items-center gap-2.5 text-sm text-gray-300">
-              <UIcon name="i-heroicons-clock" class="w-4 h-4 text-yellow-400 flex-shrink-0" />
-              <span>{{ selectedStep.time }}</span>
-            </div>
-            <div v-if="selectedStep.duration" class="flex items-center gap-2.5 text-sm text-gray-300">
-              <UIcon name="i-heroicons-calendar" class="w-4 h-4 text-yellow-400 flex-shrink-0" />
-              <span>Durée estimée : {{ selectedStep.duration }}</span>
-            </div>
-            <div v-if="selectedStep.price" class="flex items-center gap-2.5 text-sm text-gray-300">
-              <UIcon name="i-heroicons-banknotes" class="w-4 h-4 text-yellow-400 flex-shrink-0" />
-              <span>{{ selectedStep.price }}</span>
-            </div>
+    <Transition name="slide-up-bar">
+      <div v-if="itinerary && !pending" class="fixed bottom-0 left-0 right-0 z-50">
+        <div class="bg-gradient-to-t from-gray-950 via-gray-950/97 to-transparent pt-6 pb-5 px-5">
+          <div class="max-w-2xl mx-auto flex gap-3">
+            <button
+              class="flex-1 flex items-center justify-center gap-2 bg-yellow-400 hover:bg-yellow-300 active:scale-[0.98] text-black font-black text-sm py-3.5 rounded-2xl transition-all"
+              @click="shareItinerary"
+            >
+              <UIcon name="i-heroicons-share" class="w-4 h-4" />
+              Partager
+            </button>
+            <NuxtLink
+              to="/"
+              class="flex items-center justify-center gap-2 border border-gray-700 hover:border-gray-500 hover:bg-gray-800 active:scale-[0.98] text-gray-300 font-semibold text-sm px-5 py-3.5 rounded-2xl transition-all"
+            >
+              <UIcon name="i-heroicons-home" class="w-4 h-4" />
+            </NuxtLink>
           </div>
         </div>
-
-        <!-- Modal footer -->
-        <div class="px-5 pb-5">
-          <a
-            :href="`https://maps.google.com/?q=${encodeURIComponent((selectedStep.name || '') + ' ' + cityName)}`"
-            target="_blank"
-            class="w-full flex items-center justify-center gap-2 bg-yellow-400 hover:bg-yellow-300 active:scale-[0.98] text-black font-bold text-sm py-3.5 rounded-xl transition-all"
-          >
-            <UIcon name="i-heroicons-map-pin" class="w-4 h-4" />
-            Ouvrir dans Google Maps
-          </a>
-        </div>
       </div>
-    </UModal>
-
+    </Transition>
   </div>
 </template>
 
-<script setup>
-import { ref, computed } from 'vue'
+<script setup lang="ts">
+import { computed } from 'vue'
+import type { ItineraryModel, ItineraryStep } from '~/types/itinerary'
+import { getItineraryById } from '~/services/getItineraryById'
 
-const props = defineProps({
-  city:           { type: String, default: 'Paris' },
-  budget:         { type: String, default: 'medium' },
-  restaurantType: { type: String, default: 'french' }
+// ─── Route & Query Param ────────────────────────────────────────
+const route = useRoute()
+const id = computed(() => route.query.id as string)
+
+// ─── Fetch ──────────────────────────────────────────────────────
+const { data: itinerary, pending, error } = await useAsyncData<ItineraryModel>(
+  () => `itinerary-${id.value}`,
+  () => {
+    if (!id.value) throw new Error('Aucun identifiant fourni')
+    return getItineraryById(id.value)
+  },
+  { watch: [id] }
+)
+
+// ─── SEO ────────────────────────────────────────────────────────
+useHead({
+  title: computed(() => itinerary.value ? `${itinerary.value.name} — ${itinerary.value.place}` : 'Itinéraire'),
+  meta: [
+    { name: 'description', content: computed(() => itinerary.value?.description || '') }
+  ]
 })
 
-const cityName = computed(() => props.city || 'Paris')
+// ─── Display Maps ───────────────────────────────────────────────
+const styleColors: Record<string, { badge: string }> = {
+  Urbanist:    { badge: 'bg-blue-500/10 border-blue-500/30 text-blue-400' },
+  Cultural:    { badge: 'bg-purple-500/10 border-purple-500/30 text-purple-400' },
+  Attractions: { badge: 'bg-yellow-400/10 border-yellow-400/30 text-yellow-400' },
+  Nature:      { badge: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' },
+}
 
-const budgetLabel = computed(() => ({
-  low:    'Budget modéré',
-  medium: 'Budget moyen',
-  high:   'Budget premium'
-}[props.budget] || 'Budget moyen'))
+const styleIcons: Record<string, string> = {
+  Urbanist:    'i-heroicons-building-office-2',
+  Cultural:    'i-heroicons-academic-cap',
+  Attractions: 'i-heroicons-star',
+  Nature:      'i-heroicons-sun',
+}
 
-// ─── State ───────────────────────────────────────────────────────
-const loadingSuggestion = ref(false)
-const isDetailsOpen     = ref(false)
-const selectedStep      = ref(null)
+const mealIcons: Record<string, string> = {
+  Breakfast: 'i-heroicons-sun',
+  Brunch:    'i-heroicons-sun',
+  Lunch:     'i-heroicons-clock',
+  Snack:     'i-heroicons-cake',
+  Dinner:    'i-heroicons-moon',
+}
 
-const steps = ref([
-  {
-    id: 1,
-    status: 'confirmed',
-    type: 'attraction',
-    time: '10h00',
-    name: 'Tour Eiffel',
-    description: "Vivez l'élégance parisienne au sommet du monument emblématique.",
-    mapUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/Camponotus_flavomarginatus_ant.jpg/320px-Camponotus_flavomarginatus_ant.jpg',
-    duration: '2h',
-    price: '26 € / personne',
-    premium: false
-  },
-  {
-    id: 2,
-    status: 'suggestion',
-    type: 'restaurant',
-    time: '12h30',
-    name: 'Croisière sur la Seine',
-    description: "L'IA suggère un déjeuner panoramique sur l'eau après votre visite.",
-    mapUrl: null,
-    duration: '1h30',
-    price: 'À partir de 55 €',
-    premium: true
-  },
-  {
-    id: 3,
-    status: 'confirmed',
-    type: 'attraction',
-    time: '14h30',
-    name: 'Musée du Louvre',
-    description: "Explorez les chefs-d'œuvre les plus célèbres de l'humanité.",
-    mapUrl: null,
-    duration: '3h',
-    price: '17 € / personne',
-    premium: false
-  },
-  {
-    id: 4,
-    status: 'suggestion',
-    type: 'restaurant',
-    time: '18h00',
-    name: 'Le Marais Bistrot',
-    description: "L'IA recommande une pause gastronomique dans le quartier historique du Marais.",
-    mapUrl: null,
-    duration: '1h30',
-    price: 'Environ 35 €',
-    premium: false
+// ─── Computed ───────────────────────────────────────────────────
+const mealCount = computed(() =>
+  itinerary.value?.steps.filter(s => s.meal).length ?? 0
+)
+
+const totalDuration = computed(() => {
+  if (!itinerary.value?.steps.length) return '—'
+  const steps = itinerary.value.steps
+  const first = steps[0]?.startHour
+  const last = steps[steps.length - 1]?.endHour
+  if (!first || !last) return `${steps.length * 2}h env.`
+  return `${first} – ${last}`
+})
+// ─── Affordability label mapping ────────────────────────────────
+const affordabilityLabels: Record<number, string> = {
+  1: 'Low budget',
+  2: 'Budget',
+  3: 'Comfortable',
+  4: 'Luxury'
+}
+
+const getAffordabilityLabel = (value?: number): string => {
+  if (!value) return '—'
+  return affordabilityLabels[value] || '—'
+}
+// ─── Get highlighted place index ─────────────────────────────────
+const getHighlightedPlaceIndex = (step: ItineraryStep): number => {
+  if (!step.places || step.places.length === 0) return -1
+  
+  const affordability = itinerary.value?.affordability
+  if (!affordability) return 0
+  
+  // Find a place with price matching the affordability
+  const matchingPlaceIndex = step.places.findIndex(place => place.price === affordability)
+  
+  // If found, return that index; otherwise return 0 (first place)
+  return matchingPlaceIndex >= 0 ? matchingPlaceIndex : 0
+}
+
+// ─── Actions ────────────────────────────────────────────────────
+async function shareItinerary() {
+  const url = window.location.href
+  if (navigator.share) {
+    await navigator.share({
+      title: itinerary.value?.name || 'Mon itinéraire',
+      text: itinerary.value?.description || '',
+      url,
+    })
+  } else {
+    await navigator.clipboard.writeText(url)
+    // Optionally show a toast: "Lien copié !"
   }
-])
-
-// ─── Computed ────────────────────────────────────────────────────
-const allSteps        = computed(() => steps.value)
-const confirmedSteps  = computed(() => steps.value.filter(s => s.status === 'confirmed'))
-const restaurantSteps = computed(() => steps.value.filter(s => s.type === 'restaurant'))
-
-// ─── Actions ─────────────────────────────────────────────────────
-function removeStep(id) {
-  steps.value = steps.value.filter(s => s.id !== id)
-}
-
-function confirmStep(id) {
-  const step = steps.value.find(s => s.id === id)
-  if (step) step.status = 'confirmed'
-}
-
-function replaceStep(id) {
-  // TODO: call AI API to get a replacement suggestion
-  const step = steps.value.find(s => s.id === id)
-  if (step) {
-    step.name        = 'Nouvelle suggestion en cours…'
-    step.description = "L'IA génère une nouvelle suggestion pour vous."
-  }
-}
-
-function openDetails(step) {
-  selectedStep.value = step
-  isDetailsOpen.value = true
-}
-
-function openAddStep(afterIndex) {
-  // TODO: open a modal or side panel to insert a custom step
-  console.log('Add step after index:', afterIndex)
-}
-
-async function getSuggestions() {
-  loadingSuggestion.value = true
-  // TODO: replace with your real AI API call
-  await new Promise(r => setTimeout(r, 1500))
-  steps.value.push({
-    id: Date.now(),
-    status: 'suggestion',
-    type: 'attraction',
-    time: '20h00',
-    name: 'Montmartre & Sacré-Cœur',
-    description: "L'IA suggère une promenade nocturne dans le quartier des artistes.",
-    mapUrl: null,
-    duration: '2h',
-    price: 'Gratuit',
-    premium: false
-  })
-  loadingSuggestion.value = false
 }
 </script>
+
+<style scoped>
+/* ── Step enter animation ── */
+.step-item {
+  animation: stepIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes stepIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Page transitions ── */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.slide-up-enter-active {
+  transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.slide-up-enter-from {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.slide-up-bar-enter-active {
+  transition: opacity 0.4s ease 0.2s, transform 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.2s;
+}
+.slide-up-bar-enter-from {
+  opacity: 0;
+  transform: translateY(100%);
+}
+
+/* ── Clamp ── */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+</style>
