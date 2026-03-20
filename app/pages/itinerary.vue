@@ -102,21 +102,11 @@
             <div class="flex flex-col gap-0">
               <template v-for="(step, index) in itinerary.steps" :key="index">
                 <div
-                  class="flex gap-4 items-start mb-3 step-item cursor-move transition-all"
-                  :class="{
-                    'opacity-50 bg-yellow-400/5 rounded-2xl': draggedStepIndex === index,
-                    'border-l-2 border-green-400 pl-3': dragOverStepIndex === index
-                  }"
+                  class="flex gap-4 items-start mb-3 step-item transition-all"
                   :style="{ animationDelay: `${index * 80}ms` }"
-                  draggable="true"
-                  @dragstart="onDragStart(index)"
-                  @dragover="onDragOver(index, $event)"
-                  @dragleave="onDragLeave"
-                  @drop="onDrop(index)"
-                  @dragend="draggedStepIndex = null; dragOverStepIndex = null"
                 >
-                  <!-- Timeline dot with drag handle -->
-                  <div class="flex-shrink-0 mt-5 z-10 relative group">
+                  <!-- Timeline dot -->
+                  <div class="flex-shrink-0 mt-5 z-10">
                     <div
                       v-if="step.meal"
                       class="w-10 h-10 rounded-full bg-orange-500/10 border-2 border-orange-500/40 flex items-center justify-center"
@@ -128,10 +118,6 @@
                       class="w-10 h-10 rounded-full bg-yellow-400/10 border-2 border-yellow-400/30 flex items-center justify-center"
                     >
                       <UIcon name="i-heroicons-map-pin" class="w-4 h-4 text-yellow-400" />
-                    </div>
-                    <!-- Drag handle indicator -->
-                    <div class="absolute inset-0 rounded-full bg-white/0 group-hover:bg-white/5 flex items-center justify-center transition-all">
-                      <UIcon name="i-heroicons-bars-3" class="w-3 h-3 text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
                   </div>
 
@@ -161,6 +147,24 @@
                       </div>
                       <!-- Action buttons group -->
                       <div class="flex gap-2 flex-shrink-0">
+                        <!-- Move up button -->
+                        <button
+                          @click="moveStepUp(index)"
+                          :disabled="index === 0"
+                          class="p-2 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 hover:border-purple-500/40 text-purple-400 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                          title="Déplacer vers le haut"
+                        >
+                          <UIcon name="i-heroicons-arrow-up" class="w-4 h-4" />
+                        </button>
+                        <!-- Move down button -->
+                        <button
+                          @click="moveStepDown(index)"
+                          :disabled="index === itinerary.steps.length - 1"
+                          class="p-2 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 hover:border-purple-500/40 text-purple-400 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                          title="Déplacer vers le bas"
+                        >
+                          <UIcon name="i-heroicons-arrow-down" class="w-4 h-4" />
+                        </button>
                         <!-- Search places button -->
                         <button
                           @click="openPlaceSearchModal(index)"
@@ -257,7 +261,6 @@
                               <UIcon name="i-heroicons-map-pin" class="w-3 h-3" />
                               Maps
                             </a>
-            
                            <NuxtLink
                               v-if="place.fsq_place_id"
                               :to="`/itinerary-details?id=${place.fsq_place_id}`"
@@ -603,9 +606,6 @@ const isRemoving = ref(false)
 const removingStepIndex = ref<number | null>(null)
 const showDeleteConfirm = ref(false)
 const stepToDeleteIndex = ref<number | null>(null)
-const draggedStepIndex = ref<number | null>(null)
-const dragOverStepIndex = ref<number | null>(null)
-const isSavingOrder = ref(false)
 const showPlaceSearchModal = ref(false)
 const placeSearchStepIndex = ref<number | null>(null)
 const placeSearchQuery = ref('')
@@ -644,48 +644,76 @@ async function confirmDeleteStep() {
   }
 }
 
-// ─── Drag and Drop Functions ─────────────────────────────────────
-function onDragStart(index: number) {
-  draggedStepIndex.value = index
-}
-
-function onDragOver(index: number, event: DragEvent) {
-  event.preventDefault()
-  dragOverStepIndex.value = index
-}
-
-function onDragLeave() {
-  dragOverStepIndex.value = null
-}
-
-async function onDrop(dropIndex: number) {
-  if (draggedStepIndex.value === null || draggedStepIndex.value === dropIndex || !itinerary.value?.id) {
-    draggedStepIndex.value = null
-    dragOverStepIndex.value = null
-    return
-  }
+// ─── Move Step Functions ────────────────────────────────────────
+async function moveStepUp(index: number) {
+  if (index === 0 || !itinerary.value?.id) return
 
   try {
-    isSavingOrder.value = true
-    const draggedStep = itinerary.value.steps[draggedStepIndex.value]
-    const newSteps = [...itinerary.value.steps]
-    newSteps.splice(draggedStepIndex.value, 1)
-    newSteps.splice(dropIndex, 0, draggedStep)
-    
-    // Update in Supabase
+    const newSteps: ItineraryStep[] = [...itinerary.value.steps]
+
+    // Swap steps
+    ;[newSteps[index - 1], newSteps[index]] = [
+      newSteps[index],
+      newSteps[index - 1]
+    ]
+
+    // Swap their time slots
+    ;[newSteps[index - 1].startHour, newSteps[index].startHour] = [
+      newSteps[index].startHour,
+      newSteps[index - 1].startHour
+    ]
+
+    ;[newSteps[index - 1].endHour, newSteps[index].endHour] = [
+      newSteps[index].endHour,
+      newSteps[index - 1].endHour
+    ]
+
     await updateItinerary(itinerary.value.id, { steps: newSteps })
-    
-    // Update local state with smooth transition
+
     itinerary.value = {
       ...itinerary.value,
       steps: newSteps
     }
   } catch (err) {
-    console.error('Error reordering steps:', err)
-  } finally {
-    isSavingOrder.value = false
-    draggedStepIndex.value = null
-    dragOverStepIndex.value = null
+    console.error('Error moving step up:', err)
+  }
+}
+
+async function moveStepDown(index: number) {
+  if (
+    index === itinerary.value?.steps.length! - 1 ||
+    !itinerary.value?.id
+  )
+    return
+
+  try {
+    const newSteps: ItineraryStep[] = [...itinerary.value.steps]
+
+    // Swap steps
+    ;[newSteps[index], newSteps[index + 1]] = [
+      newSteps[index + 1],
+      newSteps[index]
+    ]
+
+    // Swap their time slots
+    ;[newSteps[index].startHour, newSteps[index + 1].startHour] = [
+      newSteps[index + 1].startHour,
+      newSteps[index].startHour
+    ]
+
+    ;[newSteps[index].endHour, newSteps[index + 1].endHour] = [
+      newSteps[index + 1].endHour,
+      newSteps[index].endHour
+    ]
+
+    await updateItinerary(itinerary.value.id, { steps: newSteps })
+
+    itinerary.value = {
+      ...itinerary.value,
+      steps: newSteps
+    }
+  } catch (err) {
+    console.error('Error moving step down:', err)
   }
 }
 
